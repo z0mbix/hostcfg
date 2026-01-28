@@ -83,7 +83,9 @@ Apply changes to bring the system to the desired state.
 
 ```bash
 hostcfg apply                    # Interactive confirmation
-hostcfg apply --auto-approve     # Skip confirmation
+hostcfg apply -y                 # Skip confirmation
+hostcfg apply --yes              # Skip confirmation
+hostcfg apply --auto-approve     # Skip confirmation (alias for --yes)
 hostcfg apply --dry-run          # Same as plan
 ```
 
