@@ -23,6 +23,9 @@ var knownResourceTypes = map[string]bool{
 	"cron":      true,
 	"package":   true,
 	"service":   true,
+	"user":      true,
+	"group":     true,
+	"link":      true,
 }
 
 // Executor runs the configuration management process
@@ -214,6 +217,40 @@ func (e *Executor) extractResourceAttributes(block *config.ResourceBlock) map[st
 		var cfg config.ServiceResourceConfig
 		if diags := gohcl.DecodeBody(block.Body, ctx, &cfg); !diags.HasErrors() {
 			attrs["name"] = cty.StringVal(cfg.Name)
+		}
+
+	case "user":
+		var cfg config.UserResourceConfig
+		if diags := gohcl.DecodeBody(block.Body, ctx, &cfg); !diags.HasErrors() {
+			attrs["name"] = cty.StringVal(cfg.Name)
+			if cfg.UID != nil {
+				attrs["uid"] = cty.StringVal(*cfg.UID)
+			}
+			if cfg.GID != nil {
+				attrs["gid"] = cty.StringVal(*cfg.GID)
+			}
+			if cfg.Home != nil {
+				attrs["home"] = cty.StringVal(*cfg.Home)
+			}
+			if cfg.Shell != nil {
+				attrs["shell"] = cty.StringVal(*cfg.Shell)
+			}
+		}
+
+	case "group":
+		var cfg config.GroupResourceConfig
+		if diags := gohcl.DecodeBody(block.Body, ctx, &cfg); !diags.HasErrors() {
+			attrs["name"] = cty.StringVal(cfg.Name)
+			if cfg.GID != nil {
+				attrs["gid"] = cty.StringVal(*cfg.GID)
+			}
+		}
+
+	case "link":
+		var cfg config.LinkResourceConfig
+		if diags := gohcl.DecodeBody(block.Body, ctx, &cfg); !diags.HasErrors() {
+			attrs["path"] = cty.StringVal(cfg.Path)
+			attrs["target"] = cty.StringVal(cfg.Target)
 		}
 	}
 

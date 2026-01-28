@@ -83,3 +83,34 @@ type ServiceResourceConfig struct {
 	Ensure  *string `hcl:"ensure,optional"`  // "running" or "stopped"
 	Enabled *bool   `hcl:"enabled,optional"` // Start on boot
 }
+
+// UserResourceConfig holds user resource specific attributes
+type UserResourceConfig struct {
+	Name       string   `hcl:"name"`
+	UID        *string  `hcl:"uid,optional"`
+	GID        *string  `hcl:"gid,optional"`
+	Groups     []string `hcl:"groups,optional"`
+	Home       *string  `hcl:"home,optional"`
+	Shell      *string  `hcl:"shell,optional"`
+	Comment    *string  `hcl:"comment,optional"` // GECOS field
+	System     *bool    `hcl:"system,optional"`  // Create as system user
+	CreateHome *bool    `hcl:"create_home,optional"`
+	Ensure     *string  `hcl:"ensure,optional"` // "present" or "absent"
+}
+
+// GroupResourceConfig holds group resource specific attributes
+type GroupResourceConfig struct {
+	Name    string   `hcl:"name"`
+	GID     *string  `hcl:"gid,optional"`
+	Members []string `hcl:"members,optional"`
+	System  *bool    `hcl:"system,optional"` // Create as system group
+	Ensure  *string  `hcl:"ensure,optional"` // "present" or "absent"
+}
+
+// LinkResourceConfig holds symbolic link resource specific attributes
+type LinkResourceConfig struct {
+	Path   string  `hcl:"path"`
+	Target string  `hcl:"target"`
+	Force  *bool   `hcl:"force,optional"`  // Replace existing file/directory
+	Ensure *string `hcl:"ensure,optional"` // "present" or "absent"
+}
