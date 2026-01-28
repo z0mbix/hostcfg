@@ -6,12 +6,24 @@ import (
 	"io"
 	"os"
 
+	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/z0mbix/hostcfg/internal/config"
 	"github.com/z0mbix/hostcfg/internal/diff"
 	"github.com/z0mbix/hostcfg/internal/resource"
 	"github.com/zclconf/go-cty/cty"
 )
+
+// knownResourceTypes lists all resource types that can be referenced
+var knownResourceTypes = map[string]bool{
+	"file":      true,
+	"directory": true,
+	"exec":      true,
+	"hostname":  true,
+	"cron":      true,
+	"package":   true,
+	"service":   true,
+}
 
 // Executor runs the configuration management process
 type Executor struct {
@@ -72,7 +84,13 @@ func (e *Executor) loadConfig(cfg *config.Config) error {
 	ctx := e.parser.GetEvalContext()
 
 	for _, block := range cfg.Resources {
-		r, err := resource.Create(block, ctx)
+		// Extract implicit dependencies from resource references in expressions
+		implicitDeps := e.extractImplicitDependencies(block)
+
+		// Merge explicit depends_on with implicit dependencies
+		allDeps := e.mergeDependencies(block.DependsOn, implicitDeps)
+
+		r, err := resource.CreateWithDeps(block, allDeps, ctx)
 		if err != nil {
 			return fmt.Errorf("failed to create resource %s.%s: %w",
 				block.Type, block.Name, err)
@@ -91,6 +109,28 @@ func (e *Executor) loadConfig(cfg *config.Config) error {
 	}
 
 	return nil
+}
+
+// mergeDependencies combines explicit and implicit dependencies, removing duplicates
+func (e *Executor) mergeDependencies(explicit, implicit []string) []string {
+	seen := make(map[string]bool)
+	result := make([]string, 0, len(explicit)+len(implicit))
+
+	for _, dep := range explicit {
+		if !seen[dep] {
+			seen[dep] = true
+			result = append(result, dep)
+		}
+	}
+
+	for _, dep := range implicit {
+		if !seen[dep] {
+			seen[dep] = true
+			result = append(result, dep)
+		}
+	}
+
+	return result
 }
 
 // extractResourceAttributes extracts attribute values from a resource block
@@ -178,6 +218,49 @@ func (e *Executor) extractResourceAttributes(block *config.ResourceBlock) map[st
 	}
 
 	return attrs
+}
+
+// extractImplicitDependencies analyzes HCL expressions in a resource block
+// to find references to other resources, returning them as implicit dependencies
+func (e *Executor) extractImplicitDependencies(block *config.ResourceBlock) []string {
+	deps := make(map[string]bool)
+
+	// Get all attributes from the body
+	attrs, _ := block.Body.JustAttributes()
+
+	for _, attr := range attrs {
+		// Skip depends_on as it's explicit
+		if attr.Name == "depends_on" {
+			continue
+		}
+
+		// Get all variable references in this expression
+		for _, traversal := range attr.Expr.Variables() {
+			if len(traversal) >= 2 {
+				// Check if the root is a known resource type
+				rootName := traversal.RootName()
+				if knownResourceTypes[rootName] {
+					// This is a resource reference like directory.web_root_dir.path
+					// Extract the resource type and name
+					if nameStep, ok := traversal[1].(hcl.TraverseAttr); ok {
+						resourceRef := rootName + "." + nameStep.Name
+						// Don't add self-references
+						selfRef := block.Type + "." + block.Name
+						if resourceRef != selfRef {
+							deps[resourceRef] = true
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Convert map to slice
+	result := make([]string, 0, len(deps))
+	for dep := range deps {
+		result = append(result, dep)
+	}
+	return result
 }
 
 // Plan generates and prints the execution plan

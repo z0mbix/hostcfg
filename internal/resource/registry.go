@@ -56,3 +56,21 @@ func Register(resourceType string, factory Factory) {
 func Create(block *config.ResourceBlock, ctx *hcl.EvalContext) (Resource, error) {
 	return DefaultRegistry.Create(block, ctx)
 }
+
+// CreateWithDeps creates a resource with explicit dependencies (merging implicit and explicit)
+func (r *Registry) CreateWithDeps(block *config.ResourceBlock, deps []string, ctx *hcl.EvalContext) (Resource, error) {
+	r.mu.RLock()
+	factory, ok := r.factories[block.Type]
+	r.mu.RUnlock()
+
+	if !ok {
+		return nil, fmt.Errorf("unknown resource type: %s", block.Type)
+	}
+
+	return factory(block.Name, block.Body, deps, ctx)
+}
+
+// CreateWithDeps creates a resource with explicit dependencies using the default registry
+func CreateWithDeps(block *config.ResourceBlock, deps []string, ctx *hcl.EvalContext) (Resource, error) {
+	return DefaultRegistry.CreateWithDeps(block, deps, ctx)
+}
