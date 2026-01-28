@@ -410,8 +410,7 @@ func (r *PlanResult) HasChanges() bool {
 
 // FindConfigFile looks for configuration in the following order:
 // 1. Specified path (file or directory)
-// 2. hostcfg.hcl in current directory
-// 3. *.hcl files in current directory
+// 2. Current directory (all *.hcl files)
 func FindConfigFile(path string) (string, bool, error) {
 	if path != "" {
 		info, err := os.Stat(path)
@@ -421,11 +420,6 @@ func FindConfigFile(path string) (string, bool, error) {
 		return path, info.IsDir(), nil
 	}
 
-	// Try hostcfg.hcl first
-	if info, err := os.Stat("hostcfg.hcl"); err == nil && !info.IsDir() {
-		return "hostcfg.hcl", false, nil
-	}
-
-	// Try current directory
+	// Default to current directory (like Terraform)
 	return ".", true, nil
 }

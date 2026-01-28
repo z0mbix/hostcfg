@@ -137,10 +137,7 @@ This allows you to organize configuration by concern:
 
 ### Default Behavior
 
-When no `-c` flag is specified, hostcfg looks for configuration in this order:
-
-1. `hostcfg.hcl` in the current directory
-2. All `*.hcl` files in the current directory
+When no `-c` flag is specified, hostcfg loads all `*.hcl` files from the current directory (like Terraform).
 
 ## Resources
 
