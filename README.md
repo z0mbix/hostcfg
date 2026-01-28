@@ -104,6 +104,42 @@ hostcfg validate -c /path/to/config.hcl
 | `--var` | `-e` | Set a variable (can be used multiple times): `-e key=value` |
 | `--no-color` | | Disable colored output |
 
+## Configuration Files
+
+hostcfg supports both single-file and multi-file configurations.
+
+### Single File
+
+```bash
+hostcfg plan -c config.hcl
+```
+
+### Directory of Files
+
+Load all `*.hcl` files from a directory and merge them:
+
+```bash
+hostcfg plan -c /etc/hostcfg/
+```
+
+This allows you to organize configuration by concern:
+
+```
+/etc/hostcfg/
+├── variables.hcl      # Variable definitions
+├── packages.hcl       # Package resources
+├── services.hcl       # Service resources
+├── files.hcl          # File and directory resources
+└── cron.hcl           # Cron job resources
+```
+
+### Default Behavior
+
+When no `-c` flag is specified, hostcfg looks for configuration in this order:
+
+1. `hostcfg.hcl` in the current directory
+2. All `*.hcl` files in the current directory
+
 ## Resources
 
 ### file
