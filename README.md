@@ -393,6 +393,46 @@ hostcfg apply -e environment=staging -e app_port=9090
 | `env(name)` | Get environment variable | `env("HOME")` |
 | `coalesce(values...)` | Return first non-null value | `coalesce(var.custom, "default")` |
 
+## Resource References
+
+Resources can reference attributes of other resources using the syntax `resource_type.resource_name.attribute`:
+
+```hcl
+resource "directory" "app" {
+  path = "/opt/myapp"
+  mode = "0755"
+}
+
+resource "directory" "config" {
+  path = "${directory.app.path}/config"
+  mode = "0750"
+
+  depends_on = ["directory.app"]
+}
+
+resource "file" "settings" {
+  path    = "${directory.config.path}/settings.json"
+  content = "{}"
+  mode    = "0644"
+
+  depends_on = ["directory.config"]
+}
+```
+
+### Available Attributes by Resource Type
+
+| Resource | Available Attributes |
+|----------|---------------------|
+| `file` | `path`, `content`, `mode`, `owner`, `group` |
+| `directory` | `path`, `mode`, `owner`, `group` |
+| `exec` | `command`, `creates`, `dir` |
+| `hostname` | `name` |
+| `cron` | `command`, `schedule`, `user` |
+| `package` | `name`, `version` |
+| `service` | `name` |
+
+**Note**: When using resource references, you should also declare an explicit `depends_on` to ensure the referenced resource is created first.
+
 ## Dependencies
 
 Resources can declare dependencies to control execution order:
@@ -403,7 +443,7 @@ resource "directory" "app" {
 }
 
 resource "file" "config" {
-  path    = "/opt/myapp/config.json"
+  path    = "${directory.app.path}/config.json"
   content = "{}"
 
   depends_on = ["directory.app"]
