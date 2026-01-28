@@ -9,7 +9,7 @@ import (
 )
 
 // Factory is a function that creates a new resource from an HCL body
-type Factory func(name string, body hcl.Body, ctx *hcl.EvalContext) (Resource, error)
+type Factory func(name string, body hcl.Body, dependsOn []string, ctx *hcl.EvalContext) (Resource, error)
 
 // Registry holds registered resource types and their factories
 type Registry struct {
@@ -41,7 +41,7 @@ func (r *Registry) Create(block *config.ResourceBlock, ctx *hcl.EvalContext) (Re
 		return nil, fmt.Errorf("unknown resource type: %s", block.Type)
 	}
 
-	return factory(block.Name, block.Body, ctx)
+	return factory(block.Name, block.Body, block.DependsOn, ctx)
 }
 
 // DefaultRegistry is the global default registry

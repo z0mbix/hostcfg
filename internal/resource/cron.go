@@ -26,23 +26,17 @@ type CronResource struct {
 }
 
 // NewCronResource creates a new cron resource from HCL
-func NewCronResource(name string, body hcl.Body, ctx *hcl.EvalContext) (Resource, error) {
+func NewCronResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.EvalContext) (Resource, error) {
 	var cfg config.CronResourceConfig
 	diags := gohcl.DecodeBody(body, ctx, &cfg)
 	if diags.HasErrors() {
 		return nil, fmt.Errorf("failed to decode cron resource: %s", diags.Error())
 	}
 
-	// Extract depends_on from body
-	var wrapper struct {
-		DependsOn []string `hcl:"depends_on,optional"`
-	}
-	gohcl.DecodeBody(body, ctx, &wrapper)
-
 	return &CronResource{
 		name:      name,
 		config:    cfg,
-		dependsOn: wrapper.DependsOn,
+		dependsOn: dependsOn,
 	}, nil
 }
 

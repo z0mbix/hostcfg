@@ -27,23 +27,17 @@ type FileResource struct {
 }
 
 // NewFileResource creates a new file resource from HCL
-func NewFileResource(name string, body hcl.Body, ctx *hcl.EvalContext) (Resource, error) {
+func NewFileResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.EvalContext) (Resource, error) {
 	var cfg config.FileResourceConfig
 	diags := gohcl.DecodeBody(body, ctx, &cfg)
 	if diags.HasErrors() {
 		return nil, fmt.Errorf("failed to decode file resource: %s", diags.Error())
 	}
 
-	// Extract depends_on from body
-	var wrapper struct {
-		DependsOn []string `hcl:"depends_on,optional"`
-	}
-	gohcl.DecodeBody(body, ctx, &wrapper)
-
 	return &FileResource{
 		name:      name,
 		config:    cfg,
-		dependsOn: wrapper.DependsOn,
+		dependsOn: dependsOn,
 	}, nil
 }
 

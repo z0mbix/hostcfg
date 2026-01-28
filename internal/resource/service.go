@@ -23,23 +23,17 @@ type ServiceResource struct {
 }
 
 // NewServiceResource creates a new service resource from HCL
-func NewServiceResource(name string, body hcl.Body, ctx *hcl.EvalContext) (Resource, error) {
+func NewServiceResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.EvalContext) (Resource, error) {
 	var cfg config.ServiceResourceConfig
 	diags := gohcl.DecodeBody(body, ctx, &cfg)
 	if diags.HasErrors() {
 		return nil, fmt.Errorf("failed to decode service resource: %s", diags.Error())
 	}
 
-	// Extract depends_on from body
-	var wrapper struct {
-		DependsOn []string `hcl:"depends_on,optional"`
-	}
-	gohcl.DecodeBody(body, ctx, &wrapper)
-
 	return &ServiceResource{
 		name:      name,
 		config:    cfg,
-		dependsOn: wrapper.DependsOn,
+		dependsOn: dependsOn,
 	}, nil
 }
 

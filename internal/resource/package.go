@@ -32,18 +32,12 @@ type PackageResource struct {
 }
 
 // NewPackageResource creates a new package resource from HCL
-func NewPackageResource(name string, body hcl.Body, ctx *hcl.EvalContext) (Resource, error) {
+func NewPackageResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.EvalContext) (Resource, error) {
 	var cfg config.PackageResourceConfig
 	diags := gohcl.DecodeBody(body, ctx, &cfg)
 	if diags.HasErrors() {
 		return nil, fmt.Errorf("failed to decode package resource: %s", diags.Error())
 	}
-
-	// Extract depends_on from body
-	var wrapper struct {
-		DependsOn []string `hcl:"depends_on,optional"`
-	}
-	gohcl.DecodeBody(body, ctx, &wrapper)
 
 	pm, err := detectPackageManager()
 	if err != nil {
@@ -53,7 +47,7 @@ func NewPackageResource(name string, body hcl.Body, ctx *hcl.EvalContext) (Resou
 	return &PackageResource{
 		name:      name,
 		config:    cfg,
-		dependsOn: wrapper.DependsOn,
+		dependsOn: dependsOn,
 		pm:        pm,
 	}, nil
 }

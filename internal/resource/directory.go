@@ -26,23 +26,17 @@ type DirectoryResource struct {
 }
 
 // NewDirectoryResource creates a new directory resource from HCL
-func NewDirectoryResource(name string, body hcl.Body, ctx *hcl.EvalContext) (Resource, error) {
+func NewDirectoryResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.EvalContext) (Resource, error) {
 	var cfg config.DirectoryResourceConfig
 	diags := gohcl.DecodeBody(body, ctx, &cfg)
 	if diags.HasErrors() {
 		return nil, fmt.Errorf("failed to decode directory resource: %s", diags.Error())
 	}
 
-	// Extract depends_on from body
-	var wrapper struct {
-		DependsOn []string `hcl:"depends_on,optional"`
-	}
-	gohcl.DecodeBody(body, ctx, &wrapper)
-
 	return &DirectoryResource{
 		name:      name,
 		config:    cfg,
-		dependsOn: wrapper.DependsOn,
+		dependsOn: dependsOn,
 	}, nil
 }
 
