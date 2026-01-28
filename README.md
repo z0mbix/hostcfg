@@ -395,7 +395,7 @@ hostcfg apply -e environment=staging -e app_port=9090
 
 ## Resource References
 
-Resources can reference attributes of other resources using the syntax `resource_type.resource_name.attribute`:
+Resources can reference attributes of other resources using the syntax `resource_type.resource_name.attribute`. **Dependencies are automatically inferred** from these references - no explicit `depends_on` needed:
 
 ```hcl
 resource "directory" "app" {
@@ -404,18 +404,14 @@ resource "directory" "app" {
 }
 
 resource "directory" "config" {
-  path = "${directory.app.path}/config"
+  path = "${directory.app.path}/config"  # Automatically depends on directory.app
   mode = "0750"
-
-  depends_on = ["directory.app"]
 }
 
 resource "file" "settings" {
-  path    = "${directory.config.path}/settings.json"
+  path    = "${directory.config.path}/settings.json"  # Automatically depends on directory.config
   content = "{}"
   mode    = "0644"
-
-  depends_on = ["directory.config"]
 }
 ```
 
@@ -431,22 +427,30 @@ resource "file" "settings" {
 | `package` | `name`, `version` |
 | `service` | `name` |
 
-**Note**: When using resource references, you should also declare an explicit `depends_on` to ensure the referenced resource is created first.
-
 ## Dependencies
 
-Resources can declare dependencies to control execution order:
+Dependencies are **automatically inferred** from resource references. However, you can also declare explicit dependencies using `depends_on` when there's no attribute reference:
 
 ```hcl
+# Automatic dependency - inferred from ${directory.app.path}
 resource "directory" "app" {
   path = "/opt/myapp"
 }
 
 resource "file" "config" {
-  path    = "${directory.app.path}/config.json"
+  path    = "${directory.app.path}/config.json"  # Auto-depends on directory.app
   content = "{}"
+}
 
-  depends_on = ["directory.app"]
+# Explicit dependency - needed when no attribute reference exists
+resource "package" "nginx" {
+  name = "nginx"
+}
+
+resource "service" "nginx" {
+  name    = "nginx"
+  ensure  = "running"
+  depends_on = ["package.nginx"]  # Must be explicit - no attribute reference
 }
 
 resource "service" "app" {
