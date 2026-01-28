@@ -25,14 +25,23 @@ func NewApplyCmd() *cobra.Command {
 changes to bring the system to the desired state.
 
 By default, it will show the plan and ask for confirmation before
-applying changes. Use --auto-approve to skip confirmation.`,
+applying changes. Use -y/--yes or --auto-approve to skip confirmation.`,
 		RunE: runApply,
 	}
 
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false,
 		"Show what would be done without making changes")
-	cmd.Flags().BoolVar(&autoApprove, "auto-approve", false,
+	cmd.Flags().BoolVarP(&autoApprove, "yes", "y", false,
 		"Skip interactive approval before applying")
+	cmd.Flags().Bool("auto-approve", false,
+		"Skip interactive approval before applying (alias for --yes)")
+	// Make --auto-approve an alias for --yes
+	cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+		if aa, _ := cmd.Flags().GetBool("auto-approve"); aa {
+			autoApprove = true
+		}
+		return nil
+	}
 
 	return cmd
 }
