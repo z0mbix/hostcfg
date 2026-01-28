@@ -6,9 +6,11 @@ import (
 	"io"
 	"os"
 
+	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/z0mbix/hostcfg/internal/config"
 	"github.com/z0mbix/hostcfg/internal/diff"
 	"github.com/z0mbix/hostcfg/internal/resource"
+	"github.com/zclconf/go-cty/cty"
 )
 
 // Executor runs the configuration management process
@@ -57,6 +59,16 @@ func (e *Executor) LoadDirectory(dir string) error {
 }
 
 func (e *Executor) loadConfig(cfg *config.Config) error {
+	// First pass: extract resource attributes so they can be referenced
+	// by other resources. We decode each resource to get its attribute values.
+	for _, block := range cfg.Resources {
+		attrs := e.extractResourceAttributes(block)
+		if len(attrs) > 0 {
+			e.parser.SetResourceAttributes(block.Type, block.Name, attrs)
+		}
+	}
+
+	// Second pass: create resources with full context (including resource references)
 	ctx := e.parser.GetEvalContext()
 
 	for _, block := range cfg.Resources {
@@ -64,11 +76,6 @@ func (e *Executor) loadConfig(cfg *config.Config) error {
 		if err != nil {
 			return fmt.Errorf("failed to create resource %s.%s: %w",
 				block.Type, block.Name, err)
-		}
-
-		// Set depends_on from the block
-		if len(block.DependsOn) > 0 {
-			// The resource already handles depends_on in its factory
 		}
 
 		if err := r.Validate(); err != nil {
@@ -84,6 +91,93 @@ func (e *Executor) loadConfig(cfg *config.Config) error {
 	}
 
 	return nil
+}
+
+// extractResourceAttributes extracts attribute values from a resource block
+// that can be referenced by other resources
+func (e *Executor) extractResourceAttributes(block *config.ResourceBlock) map[string]cty.Value {
+	ctx := e.parser.GetEvalContext()
+	attrs := make(map[string]cty.Value)
+
+	switch block.Type {
+	case "file":
+		var cfg config.FileResourceConfig
+		if diags := gohcl.DecodeBody(block.Body, ctx, &cfg); !diags.HasErrors() {
+			attrs["path"] = cty.StringVal(cfg.Path)
+			if cfg.Content != nil {
+				attrs["content"] = cty.StringVal(*cfg.Content)
+			}
+			if cfg.Mode != nil {
+				attrs["mode"] = cty.StringVal(*cfg.Mode)
+			}
+			if cfg.Owner != nil {
+				attrs["owner"] = cty.StringVal(*cfg.Owner)
+			}
+			if cfg.Group != nil {
+				attrs["group"] = cty.StringVal(*cfg.Group)
+			}
+		}
+
+	case "directory":
+		var cfg config.DirectoryResourceConfig
+		if diags := gohcl.DecodeBody(block.Body, ctx, &cfg); !diags.HasErrors() {
+			attrs["path"] = cty.StringVal(cfg.Path)
+			if cfg.Mode != nil {
+				attrs["mode"] = cty.StringVal(*cfg.Mode)
+			}
+			if cfg.Owner != nil {
+				attrs["owner"] = cty.StringVal(*cfg.Owner)
+			}
+			if cfg.Group != nil {
+				attrs["group"] = cty.StringVal(*cfg.Group)
+			}
+		}
+
+	case "exec":
+		var cfg config.ExecResourceConfig
+		if diags := gohcl.DecodeBody(block.Body, ctx, &cfg); !diags.HasErrors() {
+			attrs["command"] = cty.StringVal(cfg.Command)
+			if cfg.Creates != nil {
+				attrs["creates"] = cty.StringVal(*cfg.Creates)
+			}
+			if cfg.Dir != nil {
+				attrs["dir"] = cty.StringVal(*cfg.Dir)
+			}
+		}
+
+	case "hostname":
+		var cfg config.HostnameResourceConfig
+		if diags := gohcl.DecodeBody(block.Body, ctx, &cfg); !diags.HasErrors() {
+			attrs["name"] = cty.StringVal(cfg.Name)
+		}
+
+	case "cron":
+		var cfg config.CronResourceConfig
+		if diags := gohcl.DecodeBody(block.Body, ctx, &cfg); !diags.HasErrors() {
+			attrs["command"] = cty.StringVal(cfg.Command)
+			attrs["schedule"] = cty.StringVal(cfg.Schedule)
+			if cfg.User != nil {
+				attrs["user"] = cty.StringVal(*cfg.User)
+			}
+		}
+
+	case "package":
+		var cfg config.PackageResourceConfig
+		if diags := gohcl.DecodeBody(block.Body, ctx, &cfg); !diags.HasErrors() {
+			attrs["name"] = cty.StringVal(cfg.Name)
+			if cfg.Version != nil {
+				attrs["version"] = cty.StringVal(*cfg.Version)
+			}
+		}
+
+	case "service":
+		var cfg config.ServiceResourceConfig
+		if diags := gohcl.DecodeBody(block.Body, ctx, &cfg); !diags.HasErrors() {
+			attrs["name"] = cty.StringVal(cfg.Name)
+		}
+	}
+
+	return attrs
 }
 
 // Plan generates and prints the execution plan

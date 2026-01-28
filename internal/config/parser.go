@@ -16,6 +16,7 @@ import (
 type Parser struct {
 	parser    *hclparse.Parser
 	variables map[string]cty.Value
+	resources map[string]map[string]cty.Value // type -> name -> attributes
 }
 
 // NewParser creates a new HCL parser
@@ -23,12 +24,22 @@ func NewParser() *Parser {
 	return &Parser{
 		parser:    hclparse.NewParser(),
 		variables: make(map[string]cty.Value),
+		resources: make(map[string]map[string]cty.Value),
 	}
 }
 
 // SetVariable sets a variable value for use during parsing
 func (p *Parser) SetVariable(name string, value string) {
 	p.variables[name] = cty.StringVal(value)
+}
+
+// SetResourceAttributes sets resource attributes for use in expressions
+// This allows resources to reference attributes of other resources
+func (p *Parser) SetResourceAttributes(resourceType, resourceName string, attrs map[string]cty.Value) {
+	if p.resources[resourceType] == nil {
+		p.resources[resourceType] = make(map[string]cty.Value)
+	}
+	p.resources[resourceType][resourceName] = cty.ObjectVal(attrs)
 }
 
 // ParseFile parses a single HCL file
@@ -145,10 +156,20 @@ func (p *Parser) buildEvalContext(extra map[string]cty.Value) *hcl.EvalContext {
 		vars[k] = v
 	}
 
+	// Build the context variables map
+	ctxVars := map[string]cty.Value{
+		"var": cty.ObjectVal(vars),
+	}
+
+	// Add resource references (e.g., directory.web_root_dir.path)
+	for resourceType, resources := range p.resources {
+		if len(resources) > 0 {
+			ctxVars[resourceType] = cty.ObjectVal(resources)
+		}
+	}
+
 	return &hcl.EvalContext{
-		Variables: map[string]cty.Value{
-			"var": cty.ObjectVal(vars),
-		},
+		Variables: ctxVars,
 		Functions: standardFunctions(),
 	}
 }
