@@ -12,3 +12,7 @@ hostcfg
 
 # Test artifacts
 /tmp/
+
+.claude/
+
+hosts/
