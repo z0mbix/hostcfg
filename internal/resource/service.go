@@ -109,8 +109,36 @@ func (r *ServiceResource) Diff(ctx context.Context, current *State) (*Plan, erro
 		After:  NewState(),
 	}
 
+	// If service doesn't exist yet (e.g., package not installed), plan to configure it
+	// once it becomes available (after dependencies are applied)
 	if !current.Exists {
-		return nil, fmt.Errorf("service %s does not exist", r.config.Name)
+		// Check if we have any desired state to apply
+		hasDesiredState := r.config.Ensure != nil || r.config.Enabled != nil
+		if !hasDesiredState {
+			// No desired state specified, nothing to do
+			return plan, nil
+		}
+
+		// Plan to configure the service once it exists
+		plan.Action = ActionCreate
+		plan.After.Exists = true
+		plan.After.Attributes["name"] = r.config.Name
+
+		if r.config.Ensure != nil {
+			plan.Changes = append(plan.Changes, Change{
+				Attribute: "ensure",
+				Old:       "(service not yet installed)",
+				New:       *r.config.Ensure,
+			})
+		}
+		if r.config.Enabled != nil {
+			plan.Changes = append(plan.Changes, Change{
+				Attribute: "enabled",
+				Old:       "(service not yet installed)",
+				New:       *r.config.Enabled,
+			})
+		}
+		return plan, nil
 	}
 
 	plan.After.Exists = true
@@ -153,6 +181,13 @@ func (r *ServiceResource) Diff(ctx context.Context, current *State) (*Plan, erro
 func (r *ServiceResource) Apply(ctx context.Context, plan *Plan, apply bool) error {
 	if !apply || !plan.HasChanges() {
 		return nil
+	}
+
+	// Re-check if service exists now (dependencies may have installed it)
+	cmd := exec.CommandContext(ctx, "systemctl", "list-unit-files", r.config.Name+".service")
+	output, err := cmd.Output()
+	if err != nil || !strings.Contains(string(output), r.config.Name) {
+		return fmt.Errorf("service %s does not exist (is the package installed?)", r.config.Name)
 	}
 
 	for _, change := range plan.Changes {
