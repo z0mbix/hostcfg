@@ -309,6 +309,89 @@ resource "hostname" "main" {
 
 **Idempotency**: Reads `/etc/hostname` and compares with desired value.
 
+### user
+
+Manages system users.
+
+```hcl
+resource "group" "appgroup" {
+  name = "appgroup"
+}
+
+resource "user" "appuser" {
+  name       = "appuser"
+  comment    = "Application User"
+  home       = "/home/appuser"
+  shell      = "/bin/bash"
+  groups     = ["appgroup", "docker"]
+  create_home = true
+
+  depends_on = ["group.appgroup"]
+}
+```
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | yes | Username |
+| `uid` | string | no | User ID |
+| `gid` | string | no | Primary group ID |
+| `groups` | list | no | Supplementary groups |
+| `home` | string | no | Home directory path |
+| `shell` | string | no | Login shell |
+| `comment` | string | no | GECOS field (full name, etc.) |
+| `system` | bool | no | Create as system user |
+| `create_home` | bool | no | Create home directory |
+| `ensure` | string | no | `present` (default) or `absent` |
+
+**Idempotency**: Reads `/etc/passwd` to check if user exists and compare attributes.
+
+### group
+
+Manages system groups.
+
+```hcl
+resource "group" "developers" {
+  name    = "developers"
+  members = ["alice", "bob"]
+}
+```
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | yes | Group name |
+| `gid` | string | no | Group ID |
+| `members` | list | no | Group members (usernames) |
+| `system` | bool | no | Create as system group |
+| `ensure` | string | no | `present` (default) or `absent` |
+
+**Idempotency**: Reads `/etc/group` to check if group exists and compare members.
+
+### link
+
+Manages symbolic links.
+
+```hcl
+resource "link" "current" {
+  path   = "/opt/myapp/current"
+  target = "/opt/myapp/releases/v1.2.3"
+}
+
+resource "link" "config" {
+  path   = "/etc/nginx/sites-enabled/myapp"
+  target = "/etc/nginx/sites-available/myapp"
+  force  = true  # Replace existing file if present
+}
+```
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `path` | string | yes | Path where the symlink will be created |
+| `target` | string | yes | Target path the symlink points to |
+| `force` | bool | no | Replace existing file/directory with symlink |
+| `ensure` | string | no | `present` (default) or `absent` |
+
+**Idempotency**: Uses `os.Readlink` to check current symlink target.
+
 ## Variables
 
 Define variables with optional defaults:
@@ -428,6 +511,9 @@ resource "file" "settings" {
 | `cron` | `command`, `schedule`, `user` |
 | `package` | `name`, `version` |
 | `service` | `name` |
+| `user` | `name`, `uid`, `gid`, `home`, `shell` |
+| `group` | `name`, `gid` |
+| `link` | `path`, `target` |
 
 ## Dependencies
 
