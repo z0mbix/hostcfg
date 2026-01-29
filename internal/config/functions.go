@@ -7,6 +7,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Masterminds/sprig/v3"
 	"github.com/zclconf/go-cty/cty"
 	"github.com/zclconf/go-cty/cty/function"
 	"github.com/zclconf/go-cty/cty/function/stdlib"
@@ -174,6 +175,7 @@ func ctyToInterface(val cty.Value) interface{} {
 
 // makeTemplateFunc creates a template function with access to context variables
 // baseDir is the directory containing the HCL files, used to resolve relative template paths
+// Templates have access to all Sprig functions (https://masterminds.github.io/sprig/)
 func makeTemplateFunc(ctxVars map[string]cty.Value, baseDir string) function.Function {
 	return function.New(&function.Spec{
 		Params: []function.Parameter{
@@ -199,7 +201,8 @@ func makeTemplateFunc(ctxVars map[string]cty.Value, baseDir string) function.Fun
 				tmplVars[k] = ctyToGoMap(v)
 			}
 
-			tmpl, err := template.New(filepath.Base(path)).Parse(string(content))
+			// Create template with Sprig functions
+			tmpl, err := template.New(filepath.Base(path)).Funcs(sprig.FuncMap()).Parse(string(content))
 			if err != nil {
 				return cty.StringVal(""), err
 			}

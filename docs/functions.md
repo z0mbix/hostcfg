@@ -50,7 +50,7 @@
 
 ### Template Function
 
-The `template()` function renders Go templates with access to all HCL variables and resource attributes.
+The `template()` function renders Go templates with access to all HCL variables and resource attributes. Templates have access to all [Sprig](https://masterminds.github.io/sprig/) functions, providing Helm-style templating capabilities.
 
 **Template file (env.tpl):**
 ```
@@ -80,6 +80,62 @@ resource "file" "env_file" {
 ```
 
 Variables are accessible via `.var.<name>` and resources via `.<resource_type>.<resource_name>.<attribute>`.
+
+### Sprig Template Functions
+
+Templates include all [Sprig functions](https://masterminds.github.io/sprig/), providing powerful templating capabilities similar to Helm.
+
+**String Functions:**
+```
+{{ .var.name | upper }}                    # Convert to uppercase
+{{ .var.name | lower }}                    # Convert to lowercase
+{{ .var.name | title }}                    # Title case
+{{ .var.text | trim }}                     # Trim whitespace
+{{ .var.text | indent 4 }}                 # Indent by 4 spaces
+{{ .var.text | nindent 4 }}                # Newline + indent by 4 spaces
+{{ .var.list | join "," }}                 # Join list with comma
+```
+
+**Default Values:**
+```
+{{ .var.port | default 8080 }}             # Use 8080 if port is empty
+{{ .var.config | default "{}" | toJson }}  # Default with JSON encoding
+{{- if empty .var.optional }}
+# optional not set
+{{- end }}
+```
+
+**Encoding:**
+```
+{{ .var.password | b64enc }}               # Base64 encode
+{{ .var.encoded | b64dec }}                # Base64 decode
+{{ .var.config | toJson }}                 # Convert to JSON
+{{ .var.config | toPrettyJson }}           # Pretty-print JSON
+{{ .var.config | toYaml }}                 # Convert to YAML
+```
+
+**Lists and Dicts:**
+```
+{{ list "a" "b" "c" | join "," }}          # Create and join list
+{{ .var.items | first }}                   # First element
+{{ .var.items | last }}                    # Last element
+{{ .var.items | uniq }}                    # Remove duplicates
+{{ dict "key" "value" | toJson }}          # Create dictionary
+```
+
+**Conditionals:**
+```
+{{ ternary "yes" "no" .var.enabled }}      # Ternary operator
+{{ .var.required | required "msg" }}       # Fail if empty
+```
+
+**Cryptographic:**
+```
+{{ .var.data | sha256sum }}                # SHA256 hash
+{{ .var.password | htpasswd "user" }}      # Generate htpasswd entry
+```
+
+See the [Sprig documentation](https://masterminds.github.io/sprig/) for the complete list of available functions.
 
 ## Other Functions
 
