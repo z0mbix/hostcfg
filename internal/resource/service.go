@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"strings"
+	"runtime"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
@@ -15,11 +15,32 @@ func init() {
 	Register("service", NewServiceResource)
 }
 
-// ServiceResource manages systemd services
+// ServiceManager represents a system service manager (init system)
+type ServiceManager interface {
+	// Name returns the name of the service manager
+	Name() string
+	// Exists checks if the service exists on the system
+	Exists(ctx context.Context, name string) (bool, error)
+	// IsRunning checks if the service is currently running
+	IsRunning(ctx context.Context, name string) (bool, error)
+	// IsEnabled checks if the service is enabled at boot
+	IsEnabled(ctx context.Context, name string) (bool, error)
+	// Start starts the service
+	Start(ctx context.Context, name string) error
+	// Stop stops the service
+	Stop(ctx context.Context, name string) error
+	// Enable enables the service at boot
+	Enable(ctx context.Context, name string) error
+	// Disable disables the service at boot
+	Disable(ctx context.Context, name string) error
+}
+
+// ServiceResource manages system services
 type ServiceResource struct {
 	name      string
 	config    config.ServiceResourceConfig
 	dependsOn []string
+	sm        ServiceManager
 }
 
 // NewServiceResource creates a new service resource from HCL
@@ -30,10 +51,16 @@ func NewServiceResource(name string, body hcl.Body, dependsOn []string, ctx *hcl
 		return nil, fmt.Errorf("failed to decode service resource: %s", diags.Error())
 	}
 
+	sm, err := detectServiceManager()
+	if err != nil {
+		return nil, err
+	}
+
 	return &ServiceResource{
 		name:      name,
 		config:    cfg,
 		dependsOn: dependsOn,
+		sm:        sm,
 	}, nil
 }
 
@@ -60,17 +87,12 @@ func (r *ServiceResource) Dependencies() []string {
 func (r *ServiceResource) Read(ctx context.Context) (*State, error) {
 	state := NewState()
 
-	// Check if service exists
-	cmd := exec.CommandContext(ctx, "systemctl", "list-unit-files", r.config.Name+".service")
-	output, err := cmd.Output()
+	exists, err := r.sm.Exists(ctx, r.config.Name)
 	if err != nil {
-		// Service doesn't exist
-		state.Exists = false
-		return state, nil
+		return nil, fmt.Errorf("failed to check if service exists: %w", err)
 	}
 
-	// Check if the service is actually listed (not just headers)
-	if !strings.Contains(string(output), r.config.Name) {
+	if !exists {
 		state.Exists = false
 		return state, nil
 	}
@@ -78,20 +100,20 @@ func (r *ServiceResource) Read(ctx context.Context) (*State, error) {
 	state.Exists = true
 	state.Attributes["name"] = r.config.Name
 
-	// Check if running
-	cmd = exec.CommandContext(ctx, "systemctl", "is-active", r.config.Name)
-	output, _ = cmd.Output()
-	isActive := strings.TrimSpace(string(output)) == "active"
-	if isActive {
+	isRunning, err := r.sm.IsRunning(ctx, r.config.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if service is running: %w", err)
+	}
+	if isRunning {
 		state.Attributes["ensure"] = "running"
 	} else {
 		state.Attributes["ensure"] = "stopped"
 	}
 
-	// Check if enabled
-	cmd = exec.CommandContext(ctx, "systemctl", "is-enabled", r.config.Name)
-	output, _ = cmd.Output()
-	isEnabled := strings.TrimSpace(string(output)) == "enabled"
+	isEnabled, err := r.sm.IsEnabled(ctx, r.config.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if service is enabled: %w", err)
+	}
 	state.Attributes["enabled"] = isEnabled
 
 	return state, nil
@@ -178,9 +200,11 @@ func (r *ServiceResource) Apply(ctx context.Context, plan *Plan, apply bool) err
 	}
 
 	// Re-check if service exists now (dependencies may have installed it)
-	cmd := exec.CommandContext(ctx, "systemctl", "list-unit-files", r.config.Name+".service")
-	output, err := cmd.Output()
-	if err != nil || !strings.Contains(string(output), r.config.Name) {
+	exists, err := r.sm.Exists(ctx, r.config.Name)
+	if err != nil {
+		return fmt.Errorf("failed to check if service exists: %w", err)
+	}
+	if !exists {
 		return fmt.Errorf("service %s does not exist (is the package installed?)", r.config.Name)
 	}
 
@@ -188,35 +212,49 @@ func (r *ServiceResource) Apply(ctx context.Context, plan *Plan, apply bool) err
 		switch change.Attribute {
 		case "ensure":
 			newEnsure := change.New.(string)
-			var cmd *exec.Cmd
 			if newEnsure == "running" {
-				cmd = exec.CommandContext(ctx, "systemctl", "start", r.config.Name)
+				if err := r.sm.Start(ctx, r.config.Name); err != nil {
+					return fmt.Errorf("failed to start service: %w", err)
+				}
 			} else {
-				cmd = exec.CommandContext(ctx, "systemctl", "stop", r.config.Name)
-			}
-			if output, err := cmd.CombinedOutput(); err != nil {
-				return fmt.Errorf("failed to %s service: %w\nOutput: %s",
-					newEnsure, err, string(output))
+				if err := r.sm.Stop(ctx, r.config.Name); err != nil {
+					return fmt.Errorf("failed to stop service: %w", err)
+				}
 			}
 
 		case "enabled":
 			newEnabled := change.New.(bool)
-			var cmd *exec.Cmd
 			if newEnabled {
-				cmd = exec.CommandContext(ctx, "systemctl", "enable", r.config.Name)
-			} else {
-				cmd = exec.CommandContext(ctx, "systemctl", "disable", r.config.Name)
-			}
-			if output, err := cmd.CombinedOutput(); err != nil {
-				action := "enable"
-				if !newEnabled {
-					action = "disable"
+				if err := r.sm.Enable(ctx, r.config.Name); err != nil {
+					return fmt.Errorf("failed to enable service: %w", err)
 				}
-				return fmt.Errorf("failed to %s service: %w\nOutput: %s",
-					action, err, string(output))
+			} else {
+				if err := r.sm.Disable(ctx, r.config.Name); err != nil {
+					return fmt.Errorf("failed to disable service: %w", err)
+				}
 			}
 		}
 	}
 
 	return nil
+}
+
+// detectServiceManager detects and returns the appropriate service manager
+func detectServiceManager() (ServiceManager, error) {
+	switch runtime.GOOS {
+	case "freebsd":
+		return &FreeBSDServiceManager{}, nil
+	case "openbsd":
+		return &OpenBSDServiceManager{}, nil
+	case "netbsd":
+		return &NetBSDServiceManager{}, nil
+	case "linux":
+		// Check for systemd
+		if _, err := exec.LookPath("systemctl"); err == nil {
+			return &SystemdServiceManager{}, nil
+		}
+		return nil, fmt.Errorf("no supported service manager found (systemd not available)")
+	default:
+		return nil, fmt.Errorf("no supported service manager found for %s", runtime.GOOS)
+	}
 }

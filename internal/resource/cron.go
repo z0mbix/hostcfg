@@ -200,7 +200,6 @@ func (r *CronResource) Apply(ctx context.Context, plan *Plan, apply bool) error 
 
 	switch plan.Action {
 	case ActionDelete:
-		// Remove our entry
 		var newLines []string
 		for _, line := range lines {
 			if !strings.Contains(line, marker) {
@@ -210,7 +209,6 @@ func (r *CronResource) Apply(ctx context.Context, plan *Plan, apply bool) error 
 		return r.writeCrontab(ctx, cronUser, strings.Join(newLines, "\n"))
 
 	case ActionCreate:
-		// Add our entry
 		newContent := string(output)
 		if !strings.HasSuffix(newContent, "\n") && newContent != "" {
 			newContent += "\n"
@@ -219,7 +217,6 @@ func (r *CronResource) Apply(ctx context.Context, plan *Plan, apply bool) error 
 		return r.writeCrontab(ctx, cronUser, newContent)
 
 	case ActionUpdate:
-		// Replace our entry
 		var newLines []string
 		for _, line := range lines {
 			if strings.Contains(line, marker) {

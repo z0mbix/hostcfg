@@ -9,6 +9,19 @@ A simple, idempotent configuration management tool using HCL syntax.
 - **Dependency management** - Automatic ordering with cycle detection
 - **Roles** - Reusable configuration modules with variables and templates
 - **Diff output** - Clear visualization of planned changes
+- **Cross-platform** - Supports Linux and BSD systems
+
+## Supported Platforms
+
+| Platform | Package Manager | Service Manager |
+|----------|----------------|-----------------|
+| Debian/Ubuntu | apt | systemd |
+| Fedora/RHEL 8+ | dnf | systemd |
+| RHEL 7/CentOS | yum | systemd |
+| Arch Linux | pacman | systemd |
+| FreeBSD | pkg | rc.d |
+| OpenBSD | pkg_add | rcctl |
+| NetBSD | pkgin, pkg_add | rc.d |
 
 ## Installation
 
@@ -67,7 +80,7 @@ hostcfg apply
 | `directory` | Manage directories |
 | `link` | Manage symbolic links |
 | `package` | Install/remove system packages |
-| `service` | Manage systemd services |
+| `service` | Manage system services |
 | `user` | Manage system users |
 | `group` | Manage system groups |
 | `cron` | Manage cron jobs |

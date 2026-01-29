@@ -1,0 +1,5 @@
+[env]
+_.path = ["bin"]
+
+[tools]
+go = "1.25.6"

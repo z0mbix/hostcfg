@@ -115,7 +115,7 @@ BSD:
 
 ## service
 
-Manages systemd services.
+Manages system services with automatic service manager detection.
 
 ```hcl
 resource "service" "nginx" {
@@ -129,11 +129,21 @@ resource "service" "nginx" {
 
 | Attribute | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `name` | string | yes | Service name (without `.service` suffix) |
+| `name` | string | yes | Service name |
 | `ensure` | string | no | `running` or `stopped` |
 | `enabled` | bool | no | Whether the service starts on boot |
 
-**Idempotency**: Uses `systemctl is-active` and `systemctl is-enabled` to check current state.
+**Supported service managers** (auto-detected):
+
+Linux:
+- `systemd` (most modern distributions)
+
+BSD:
+- `rc.d` with `service` command (FreeBSD)
+- `rcctl` (OpenBSD)
+- `rc.d` scripts (NetBSD)
+
+**Idempotency**: Queries the service manager to check current running and enabled state.
 
 ## cron
 
