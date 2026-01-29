@@ -118,9 +118,9 @@ func (l *Loader) LoadRole(block *config.RoleBlock) (*Role, error) {
 	return role, nil
 }
 
-// loadDefaults loads default variables from defaults/variables.hcl
+// loadDefaults loads default variables from variables.hcl in the role root
 func (l *Loader) loadDefaults(role *Role) error {
-	defaultsPath := filepath.Join(role.BaseDir, "defaults", "variables.hcl")
+	defaultsPath := filepath.Join(role.BaseDir, "variables.hcl")
 
 	// If defaults file doesn't exist, that's okay
 	if _, err := os.Stat(defaultsPath); os.IsNotExist(err) {
@@ -181,6 +181,10 @@ func (l *Loader) parseRoleResources(roleDir string) ([]*config.ResourceBlock, er
 		}
 		name := entry.Name()
 		if !strings.HasSuffix(name, ".hcl") {
+			continue
+		}
+		// Skip variables.hcl - it contains variable definitions, not resources
+		if name == "variables.hcl" {
 			continue
 		}
 

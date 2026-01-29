@@ -7,12 +7,11 @@ Roles are reusable configuration modules that contain default variables, resourc
 ```
 roles/
   redis/
-    defaults/
-      variables.hcl     # Default variables (lowest precedence)
+    variables.hcl     # Default variables (lowest precedence)
+    resources.hcl     # Role's HCL resources
     files/
-      redis.conf.tpl    # Template files
-      file.txt          # Regular files
-    resources.hcl       # Role's HCL resources
+      redis.conf.tpl  # Template files
+      file.txt        # Regular files
 ```
 
 ## Using Roles
@@ -50,7 +49,7 @@ Variables are resolved with the following precedence (highest to lowest):
 
 1. **CLI variables** (`-e port=6380`)
 2. **Role instantiation variables** (`variables = { ... }`)
-3. **Role defaults** (`roles/redis/defaults/variables.hcl`)
+3. **Role defaults** (`roles/redis/variables.hcl`)
 
 ## Path Resolution
 
@@ -94,7 +93,7 @@ resource "file" "app_config" {
 
 ## Example Role
 
-**`roles/redis/defaults/variables.hcl`:**
+**`roles/redis/variables.hcl`:**
 ```hcl
 variable "port" {
   default = 6379

@@ -98,10 +98,18 @@ resource "package" "nginx" {
 | `ensure` | string | no | `present` (default) or `absent` |
 
 **Supported package managers** (auto-detected):
+
+Linux:
 - `apt` (Debian, Ubuntu)
 - `dnf` (Fedora, RHEL 8+)
 - `yum` (RHEL 7, CentOS)
 - `pacman` (Arch Linux)
+
+BSD:
+- `pkg` (FreeBSD)
+- `pkg_add` (OpenBSD)
+- `pkgin` (NetBSD, preferred)
+- `pkg_add` (NetBSD, fallback)
 
 **Idempotency**: Queries package manager to check if package is installed and at correct version.
 

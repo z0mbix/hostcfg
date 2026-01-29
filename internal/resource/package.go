@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"strings"
+	"runtime"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
@@ -171,179 +171,48 @@ func (r *PackageResource) Apply(ctx context.Context, plan *Plan, apply bool) err
 
 // detectPackageManager detects and returns the appropriate package manager
 func detectPackageManager() (PackageManager, error) {
-	// Try apt first (Debian/Ubuntu)
-	if _, err := exec.LookPath("apt-get"); err == nil {
-		return &AptPackageManager{}, nil
-	}
-
-	// Try dnf (Fedora/RHEL 8+)
-	if _, err := exec.LookPath("dnf"); err == nil {
-		return &DnfPackageManager{}, nil
-	}
-
-	// Try yum (RHEL 7/CentOS)
-	if _, err := exec.LookPath("yum"); err == nil {
-		return &YumPackageManager{}, nil
-	}
-
-	// Try pacman (Arch Linux)
-	if _, err := exec.LookPath("pacman"); err == nil {
-		return &PacmanPackageManager{}, nil
-	}
-
-	return nil, fmt.Errorf("no supported package manager found")
-}
-
-// AptPackageManager implements PackageManager for apt
-type AptPackageManager struct{}
-
-func (m *AptPackageManager) Name() string { return "apt" }
-
-func (m *AptPackageManager) IsInstalled(ctx context.Context, name string) (bool, string, error) {
-	cmd := exec.CommandContext(ctx, "dpkg-query", "-W", "-f=${Status} ${Version}", name)
-	output, err := cmd.Output()
-	if err != nil {
-		return false, "", nil
-	}
-
-	outputStr := string(output)
-	if strings.Contains(outputStr, "install ok installed") {
-		parts := strings.Fields(outputStr)
-		if len(parts) >= 4 {
-			return true, parts[3], nil
+	// Check OS first for BSD systems
+	switch runtime.GOOS {
+	case "freebsd":
+		if _, err := exec.LookPath("pkg"); err == nil {
+			return &PkgPackageManager{}, nil
 		}
-		return true, "", nil
+	case "openbsd":
+		if _, err := exec.LookPath("pkg_add"); err == nil {
+			return &OpenBSDPackageManager{}, nil
+		}
+	case "netbsd":
+		// Prefer pkgin if available
+		if _, err := exec.LookPath("pkgin"); err == nil {
+			return &PkginPackageManager{}, nil
+		}
+		if _, err := exec.LookPath("pkg_add"); err == nil {
+			return &NetBSDPackageManager{}, nil
+		}
 	}
 
-	return false, "", nil
-}
+	// Linux package managers
+	if runtime.GOOS == "linux" {
+		// Try apt first (Debian/Ubuntu)
+		if _, err := exec.LookPath("apt-get"); err == nil {
+			return &AptPackageManager{}, nil
+		}
 
-func (m *AptPackageManager) Install(ctx context.Context, name, version string) error {
-	pkg := name
-	if version != "" {
-		pkg = fmt.Sprintf("%s=%s", name, version)
+		// Try dnf (Fedora/RHEL 8+)
+		if _, err := exec.LookPath("dnf"); err == nil {
+			return &DnfPackageManager{}, nil
+		}
+
+		// Try yum (RHEL 7/CentOS)
+		if _, err := exec.LookPath("yum"); err == nil {
+			return &YumPackageManager{}, nil
+		}
+
+		// Try pacman (Arch Linux)
+		if _, err := exec.LookPath("pacman"); err == nil {
+			return &PacmanPackageManager{}, nil
+		}
 	}
-	cmd := exec.CommandContext(ctx, "apt-get", "install", "-y", pkg)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("apt-get install failed: %w\nOutput: %s", err, string(output))
-	}
-	return nil
-}
 
-func (m *AptPackageManager) Remove(ctx context.Context, name string) error {
-	cmd := exec.CommandContext(ctx, "apt-get", "remove", "-y", name)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("apt-get remove failed: %w\nOutput: %s", err, string(output))
-	}
-	return nil
-}
-
-// DnfPackageManager implements PackageManager for dnf
-type DnfPackageManager struct{}
-
-func (m *DnfPackageManager) Name() string { return "dnf" }
-
-func (m *DnfPackageManager) IsInstalled(ctx context.Context, name string) (bool, string, error) {
-	cmd := exec.CommandContext(ctx, "rpm", "-q", "--queryformat", "%{VERSION}-%{RELEASE}", name)
-	output, err := cmd.Output()
-	if err != nil {
-		return false, "", nil
-	}
-	return true, strings.TrimSpace(string(output)), nil
-}
-
-func (m *DnfPackageManager) Install(ctx context.Context, name, version string) error {
-	pkg := name
-	if version != "" {
-		pkg = fmt.Sprintf("%s-%s", name, version)
-	}
-	cmd := exec.CommandContext(ctx, "dnf", "install", "-y", pkg)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("dnf install failed: %w\nOutput: %s", err, string(output))
-	}
-	return nil
-}
-
-func (m *DnfPackageManager) Remove(ctx context.Context, name string) error {
-	cmd := exec.CommandContext(ctx, "dnf", "remove", "-y", name)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("dnf remove failed: %w\nOutput: %s", err, string(output))
-	}
-	return nil
-}
-
-// YumPackageManager implements PackageManager for yum
-type YumPackageManager struct{}
-
-func (m *YumPackageManager) Name() string { return "yum" }
-
-func (m *YumPackageManager) IsInstalled(ctx context.Context, name string) (bool, string, error) {
-	cmd := exec.CommandContext(ctx, "rpm", "-q", "--queryformat", "%{VERSION}-%{RELEASE}", name)
-	output, err := cmd.Output()
-	if err != nil {
-		return false, "", nil
-	}
-	return true, strings.TrimSpace(string(output)), nil
-}
-
-func (m *YumPackageManager) Install(ctx context.Context, name, version string) error {
-	pkg := name
-	if version != "" {
-		pkg = fmt.Sprintf("%s-%s", name, version)
-	}
-	cmd := exec.CommandContext(ctx, "yum", "install", "-y", pkg)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("yum install failed: %w\nOutput: %s", err, string(output))
-	}
-	return nil
-}
-
-func (m *YumPackageManager) Remove(ctx context.Context, name string) error {
-	cmd := exec.CommandContext(ctx, "yum", "remove", "-y", name)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("yum remove failed: %w\nOutput: %s", err, string(output))
-	}
-	return nil
-}
-
-// PacmanPackageManager implements PackageManager for pacman
-type PacmanPackageManager struct{}
-
-func (m *PacmanPackageManager) Name() string { return "pacman" }
-
-func (m *PacmanPackageManager) IsInstalled(ctx context.Context, name string) (bool, string, error) {
-	cmd := exec.CommandContext(ctx, "pacman", "-Q", name)
-	output, err := cmd.Output()
-	if err != nil {
-		return false, "", nil
-	}
-	parts := strings.Fields(string(output))
-	if len(parts) >= 2 {
-		return true, parts[1], nil
-	}
-	return true, "", nil
-}
-
-func (m *PacmanPackageManager) Install(ctx context.Context, name, version string) error {
-	cmd := exec.CommandContext(ctx, "pacman", "-S", "--noconfirm", name)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("pacman install failed: %w\nOutput: %s", err, string(output))
-	}
-	return nil
-}
-
-func (m *PacmanPackageManager) Remove(ctx context.Context, name string) error {
-	cmd := exec.CommandContext(ctx, "pacman", "-R", "--noconfirm", name)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("pacman remove failed: %w\nOutput: %s", err, string(output))
-	}
-	return nil
+	return nil, fmt.Errorf("no supported package manager found for %s", runtime.GOOS)
 }

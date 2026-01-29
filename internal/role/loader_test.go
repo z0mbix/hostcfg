@@ -88,12 +88,11 @@ func TestLoader_LoadRole_DefaultVariables(t *testing.T) {
 
 	// Create role directory structure
 	roleDir := filepath.Join(tmpDir, "roles", "redis")
-	defaultsDir := filepath.Join(roleDir, "defaults")
-	if err := os.MkdirAll(defaultsDir, 0755); err != nil {
-		t.Fatalf("failed to create defaults dir: %v", err)
+	if err := os.MkdirAll(roleDir, 0755); err != nil {
+		t.Fatalf("failed to create role dir: %v", err)
 	}
 
-	// Create defaults/variables.hcl
+	// Create variables.hcl in role root
 	defaultsHCL := `
 variable "port" {
   default = 6379
@@ -103,7 +102,7 @@ variable "maxmemory" {
   default = "256mb"
 }
 `
-	if err := os.WriteFile(filepath.Join(defaultsDir, "variables.hcl"), []byte(defaultsHCL), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(roleDir, "variables.hcl"), []byte(defaultsHCL), 0644); err != nil {
 		t.Fatalf("failed to write variables.hcl: %v", err)
 	}
 
@@ -148,18 +147,17 @@ func TestLoader_LoadRole_VariablePrecedence(t *testing.T) {
 
 	// Create role directory structure
 	roleDir := filepath.Join(tmpDir, "roles", "redis")
-	defaultsDir := filepath.Join(roleDir, "defaults")
-	if err := os.MkdirAll(defaultsDir, 0755); err != nil {
-		t.Fatalf("failed to create defaults dir: %v", err)
+	if err := os.MkdirAll(roleDir, 0755); err != nil {
+		t.Fatalf("failed to create role dir: %v", err)
 	}
 
-	// Create defaults with port=6379
+	// Create variables.hcl with port=6379
 	defaultsHCL := `
 variable "port" {
   default = 6379
 }
 `
-	if err := os.WriteFile(filepath.Join(defaultsDir, "variables.hcl"), []byte(defaultsHCL), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(roleDir, "variables.hcl"), []byte(defaultsHCL), 0644); err != nil {
 		t.Fatalf("failed to write variables.hcl: %v", err)
 	}
 
