@@ -48,11 +48,10 @@ resource "directory" "config" {
 }
 
 resource "file" "config" {
-  path    = "/etc/myapp/config.json"
+  path    = "${directory.config.path}/config.json"
   content = <<-EOF
     {"name": "myapp", "version": "1.0.0"}
   EOF
-  depends_on = ["directory.config"]
 }
 ```
 
