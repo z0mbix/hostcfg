@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/z0mbix/hostcfg/internal/config"
 	"github.com/z0mbix/hostcfg/internal/diff"
 	"github.com/z0mbix/hostcfg/internal/resource"
+	"github.com/z0mbix/hostcfg/internal/role"
 	"github.com/zclconf/go-cty/cty"
 )
 
@@ -35,6 +37,8 @@ type Executor struct {
 	printer   *diff.Printer
 	out       io.Writer
 	useColors bool
+	roles     map[string]*role.Role
+	cliVars   map[string]cty.Value
 }
 
 // NewExecutor creates a new executor
@@ -45,12 +49,15 @@ func NewExecutor(out io.Writer, useColors bool) *Executor {
 		printer:   diff.NewPrinter(out, useColors),
 		out:       out,
 		useColors: useColors,
+		roles:     make(map[string]*role.Role),
+		cliVars:   make(map[string]cty.Value),
 	}
 }
 
 // SetVariable sets a variable for use during execution
 func (e *Executor) SetVariable(name, value string) {
 	e.parser.SetVariable(name, value)
+	e.cliVars[name] = cty.StringVal(value)
 }
 
 // LoadFile loads and parses an HCL configuration file
@@ -74,26 +81,63 @@ func (e *Executor) LoadDirectory(dir string) error {
 }
 
 func (e *Executor) loadConfig(cfg *config.Config) error {
+	// Phase 0: Load all roles
+	if len(cfg.Roles) > 0 {
+		roleLoader := role.NewLoader(e.parser, e.parser.GetBaseDir(), e.cliVars)
+		for _, roleBlock := range cfg.Roles {
+			r, err := roleLoader.LoadRole(roleBlock)
+			if err != nil {
+				return fmt.Errorf("failed to load role %s: %w", roleBlock.Name, err)
+			}
+			e.roles[roleBlock.Name] = r
+
+			// Append role resources to main resource list
+			cfg.Resources = append(cfg.Resources, r.Resources...)
+		}
+	}
+
 	// First pass: extract resource attributes so they can be referenced
 	// by other resources. We decode each resource to get its attribute values.
 	for _, block := range cfg.Resources {
+		// Set role context if this is a role resource
+		if block.RoleBaseDir != "" {
+			e.parser.SetRoleContext(block.RoleBaseDir)
+		}
 		attrs := e.extractResourceAttributes(block)
 		if len(attrs) > 0 {
 			e.parser.SetResourceAttributes(block.Type, block.Name, attrs)
 		}
+		// Clear role context
+		if block.RoleBaseDir != "" {
+			e.parser.ClearRoleContext()
+		}
 	}
 
 	// Second pass: create resources with full context (including resource references)
-	ctx := e.parser.GetEvalContext()
-
 	for _, block := range cfg.Resources {
+		// Set role context if this is a role resource (for template path resolution)
+		if block.RoleBaseDir != "" {
+			e.parser.SetRoleContext(block.RoleBaseDir)
+		}
+
+		ctx := e.parser.GetEvalContext()
+
 		// Extract implicit dependencies from resource references in expressions
 		implicitDeps := e.extractImplicitDependencies(block)
 
 		// Merge explicit depends_on with implicit dependencies
 		allDeps := e.mergeDependencies(block.DependsOn, implicitDeps)
 
+		// Expand role-level dependencies (role.xxx -> all resources in that role)
+		allDeps = e.expandRoleDependencies(allDeps)
+
 		r, err := resource.CreateWithDeps(block, allDeps, ctx)
+
+		// Clear role context
+		if block.RoleBaseDir != "" {
+			e.parser.ClearRoleContext()
+		}
+
 		if err != nil {
 			return fmt.Errorf("failed to create resource %s.%s: %w",
 				block.Type, block.Name, err)
@@ -112,6 +156,22 @@ func (e *Executor) loadConfig(cfg *config.Config) error {
 	}
 
 	return nil
+}
+
+// expandRoleDependencies converts "role.redis" to all resources in that role
+func (e *Executor) expandRoleDependencies(deps []string) []string {
+	var result []string
+	for _, dep := range deps {
+		if strings.HasPrefix(dep, "role.") {
+			roleName := strings.TrimPrefix(dep, "role.")
+			if r, ok := e.roles[roleName]; ok {
+				result = append(result, r.GetResourceIDs()...)
+			}
+		} else {
+			result = append(result, dep)
+		}
+	}
+	return result
 }
 
 // mergeDependencies combines explicit and implicit dependencies, removing duplicates

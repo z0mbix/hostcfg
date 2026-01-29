@@ -14,9 +14,11 @@ import (
 
 // Parser handles parsing HCL configuration files
 type Parser struct {
-	parser    *hclparse.Parser
-	variables map[string]cty.Value
-	resources map[string]map[string]cty.Value // type -> name -> attributes
+	parser      *hclparse.Parser
+	variables   map[string]cty.Value
+	resources   map[string]map[string]cty.Value // type -> name -> attributes
+	baseDir     string                          // directory containing HCL files
+	roleBaseDir string                          // current role's directory (empty if not in role)
 }
 
 // NewParser creates a new HCL parser
@@ -31,6 +33,34 @@ func NewParser() *Parser {
 // SetVariable sets a variable value for use during parsing
 func (p *Parser) SetVariable(name string, value string) {
 	p.variables[name] = cty.StringVal(value)
+}
+
+// SetVariableValue sets a variable with a cty.Value directly
+func (p *Parser) SetVariableValue(name string, value cty.Value) {
+	p.variables[name] = value
+}
+
+// GetBaseDir returns the base directory for the parser
+func (p *Parser) GetBaseDir() string {
+	return p.baseDir
+}
+
+// SetRoleContext sets the base directory for role-relative paths
+func (p *Parser) SetRoleContext(roleDir string) {
+	p.roleBaseDir = roleDir
+}
+
+// ClearRoleContext resets to main config context
+func (p *Parser) ClearRoleContext() {
+	p.roleBaseDir = ""
+}
+
+// getEffectiveBaseDir returns roleBaseDir if set, otherwise baseDir
+func (p *Parser) getEffectiveBaseDir() string {
+	if p.roleBaseDir != "" {
+		return p.roleBaseDir
+	}
+	return p.baseDir
 }
 
 // SetResourceAttributes sets resource attributes for use in expressions
@@ -53,6 +83,17 @@ func (p *Parser) ParseFile(filename string) (*Config, hcl.Diagnostics) {
 		}}
 	}
 
+	// Set base directory to the directory containing the HCL file
+	absPath, err := filepath.Abs(filename)
+	if err != nil {
+		return nil, hcl.Diagnostics{{
+			Severity: hcl.DiagError,
+			Summary:  "Failed to resolve file path",
+			Detail:   err.Error(),
+		}}
+	}
+	p.baseDir = filepath.Dir(absPath)
+
 	file, diags := p.parser.ParseHCL(src, filename)
 	if diags.HasErrors() {
 		return nil, diags
@@ -63,6 +104,17 @@ func (p *Parser) ParseFile(filename string) (*Config, hcl.Diagnostics) {
 
 // ParseDirectory parses all .hcl files in a directory
 func (p *Parser) ParseDirectory(dir string) (*Config, hcl.Diagnostics) {
+	// Set base directory for resolving relative paths in templates
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, hcl.Diagnostics{{
+			Severity: hcl.DiagError,
+			Summary:  "Failed to resolve directory path",
+			Detail:   err.Error(),
+		}}
+	}
+	p.baseDir = absDir
+
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, hcl.Diagnostics{{
@@ -168,9 +220,14 @@ func (p *Parser) buildEvalContext(extra map[string]cty.Value) *hcl.EvalContext {
 		}
 	}
 
+	// Build functions map with template having access to context
+	// Use the effective base dir (role's base dir if in role context)
+	funcs := standardFunctions()
+	funcs["template"] = makeTemplateFunc(ctxVars, p.getEffectiveBaseDir())
+
 	return &hcl.EvalContext{
 		Variables: ctxVars,
-		Functions: standardFunctions(),
+		Functions: funcs,
 	}
 }
 

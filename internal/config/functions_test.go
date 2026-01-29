@@ -15,6 +15,8 @@ func TestStandardFunctions(t *testing.T) {
 	}
 
 	// Check that expected functions exist
+	// Note: template() is not in standardFunctions() - it's added dynamically
+	// in buildEvalContext() with access to context variables
 	expectedFuncs := []string{
 		// String functions
 		"upper", "lower", "trim", "trimprefix", "trimsuffix", "trimspace",
@@ -218,4 +220,187 @@ func TestStdlibFunctions(t *testing.T) {
 			t.Errorf("expected 'a,b,c', got %q", result.AsString())
 		}
 	})
+}
+
+func TestTemplateFunc(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmplPath := filepath.Join(tmpDir, "test.tpl")
+
+	// Create a simple template file
+	if err := os.WriteFile(tmplPath, []byte("Hello, World!"), 0644); err != nil {
+		t.Fatalf("failed to write template file: %v", err)
+	}
+
+	// Create template function with empty context (absolute path, no baseDir needed)
+	tmplFunc := makeTemplateFunc(map[string]cty.Value{}, "")
+
+	result, err := tmplFunc.Call([]cty.Value{cty.StringVal(tmplPath)})
+	if err != nil {
+		t.Fatalf("template failed: %v", err)
+	}
+
+	if result.AsString() != "Hello, World!" {
+		t.Errorf("expected 'Hello, World!', got %q", result.AsString())
+	}
+}
+
+func TestTemplateFunc_WithVariables(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmplPath := filepath.Join(tmpDir, "test.tpl")
+
+	// Create a template file that uses variables
+	tmplContent := `APP_NAME={{ .var.app_name }}
+PORT={{ .var.port }}
+CONFIG_DIR={{ .directory.config_dir.path }}`
+	if err := os.WriteFile(tmplPath, []byte(tmplContent), 0644); err != nil {
+		t.Fatalf("failed to write template file: %v", err)
+	}
+
+	// Create context variables like the parser would
+	ctxVars := map[string]cty.Value{
+		"var": cty.ObjectVal(map[string]cty.Value{
+			"app_name": cty.StringVal("myapp"),
+			"port":     cty.StringVal("8080"),
+		}),
+		"directory": cty.ObjectVal(map[string]cty.Value{
+			"config_dir": cty.ObjectVal(map[string]cty.Value{
+				"path": cty.StringVal("/opt/myapp/config"),
+			}),
+		}),
+	}
+
+	tmplFunc := makeTemplateFunc(ctxVars, "")
+
+	result, err := tmplFunc.Call([]cty.Value{cty.StringVal(tmplPath)})
+	if err != nil {
+		t.Fatalf("template failed: %v", err)
+	}
+
+	expected := `APP_NAME=myapp
+PORT=8080
+CONFIG_DIR=/opt/myapp/config`
+	if result.AsString() != expected {
+		t.Errorf("expected:\n%s\n\ngot:\n%s", expected, result.AsString())
+	}
+}
+
+func TestTemplateFunc_MissingFile(t *testing.T) {
+	tmplFunc := makeTemplateFunc(map[string]cty.Value{}, "")
+
+	_, err := tmplFunc.Call([]cty.Value{cty.StringVal("/nonexistent/template.tpl")})
+	if err == nil {
+		t.Error("expected error for non-existent template file")
+	}
+}
+
+func TestTemplateFunc_InvalidSyntax(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmplPath := filepath.Join(tmpDir, "invalid.tpl")
+
+	// Create a template with invalid syntax
+	if err := os.WriteFile(tmplPath, []byte("{{ .invalid syntax }}"), 0644); err != nil {
+		t.Fatalf("failed to write template file: %v", err)
+	}
+
+	tmplFunc := makeTemplateFunc(map[string]cty.Value{}, "")
+
+	_, err := tmplFunc.Call([]cty.Value{cty.StringVal(tmplPath)})
+	if err == nil {
+		t.Error("expected error for invalid template syntax")
+	}
+}
+
+func TestTemplateFunc_RelativePath(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmplPath := filepath.Join(tmpDir, "test.tpl")
+
+	// Create a simple template file
+	if err := os.WriteFile(tmplPath, []byte("Hello from relative path!"), 0644); err != nil {
+		t.Fatalf("failed to write template file: %v", err)
+	}
+
+	// Create template function with baseDir set
+	tmplFunc := makeTemplateFunc(map[string]cty.Value{}, tmpDir)
+
+	// Use relative path (just the filename)
+	result, err := tmplFunc.Call([]cty.Value{cty.StringVal("test.tpl")})
+	if err != nil {
+		t.Fatalf("template failed: %v", err)
+	}
+
+	if result.AsString() != "Hello from relative path!" {
+		t.Errorf("expected 'Hello from relative path!', got %q", result.AsString())
+	}
+}
+
+func TestTemplateFunc_RelativePathWithDotSlash(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmplPath := filepath.Join(tmpDir, "test.tpl")
+
+	// Create a simple template file
+	if err := os.WriteFile(tmplPath, []byte("Hello with ./!"), 0644); err != nil {
+		t.Fatalf("failed to write template file: %v", err)
+	}
+
+	// Create template function with baseDir set
+	tmplFunc := makeTemplateFunc(map[string]cty.Value{}, tmpDir)
+
+	// Use relative path with ./
+	result, err := tmplFunc.Call([]cty.Value{cty.StringVal("./test.tpl")})
+	if err != nil {
+		t.Fatalf("template failed: %v", err)
+	}
+
+	if result.AsString() != "Hello with ./!" {
+		t.Errorf("expected 'Hello with ./!', got %q", result.AsString())
+	}
+}
+
+func TestCtyToGoMap(t *testing.T) {
+	// Test with object value
+	objVal := cty.ObjectVal(map[string]cty.Value{
+		"string": cty.StringVal("hello"),
+		"number": cty.NumberIntVal(42),
+		"bool":   cty.BoolVal(true),
+	})
+
+	result := ctyToGoMap(objVal)
+
+	if result["string"] != "hello" {
+		t.Errorf("expected string 'hello', got %v", result["string"])
+	}
+	if result["number"] != float64(42) {
+		t.Errorf("expected number 42, got %v", result["number"])
+	}
+	if result["bool"] != true {
+		t.Errorf("expected bool true, got %v", result["bool"])
+	}
+}
+
+func TestCtyToGoMap_Null(t *testing.T) {
+	result := ctyToGoMap(cty.NullVal(cty.String))
+	if len(result) != 0 {
+		t.Errorf("expected empty map for null value, got %v", result)
+	}
+}
+
+func TestCtyToInterface_List(t *testing.T) {
+	listVal := cty.ListVal([]cty.Value{
+		cty.StringVal("a"),
+		cty.StringVal("b"),
+		cty.StringVal("c"),
+	})
+
+	result := ctyToInterface(listVal)
+	list, ok := result.([]interface{})
+	if !ok {
+		t.Fatalf("expected []interface{}, got %T", result)
+	}
+
+	if len(list) != 3 {
+		t.Errorf("expected 3 elements, got %d", len(list))
+	}
+	if list[0] != "a" || list[1] != "b" || list[2] != "c" {
+		t.Errorf("unexpected list contents: %v", list)
+	}
 }

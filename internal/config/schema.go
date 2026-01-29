@@ -8,6 +8,16 @@ import (
 type Config struct {
 	Variables []*Variable      `hcl:"variable,block"`
 	Resources []*ResourceBlock `hcl:"resource,block"`
+	Roles     []*RoleBlock     `hcl:"role,block"`
+}
+
+// RoleBlock represents a role instantiation in HCL
+type RoleBlock struct {
+	Name      string         `hcl:"name,label"`
+	Source    string         `hcl:"source"`
+	Variables hcl.Expression `hcl:"variables,optional"`
+	DependsOn []string       `hcl:"depends_on,optional"`
+	Body      hcl.Body       `hcl:",remain"`
 }
 
 // Variable represents a variable definition in HCL
@@ -24,6 +34,11 @@ type ResourceBlock struct {
 	Name      string   `hcl:"name,label"`
 	DependsOn []string `hcl:"depends_on,optional"`
 	Body      hcl.Body `hcl:",remain"`
+
+	// RoleBaseDir is the base directory for role resources (for template path resolution).
+	// This is set by the role loader and is empty for non-role resources.
+	// No HCL tag means gohcl ignores this field during decoding.
+	RoleBaseDir string
 }
 
 // FileResourceConfig holds file resource specific attributes
