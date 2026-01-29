@@ -42,6 +42,10 @@ go build -o hostcfg ./cmd/hostcfg
 Create `hostcfg.hcl`:
 
 ```hcl
+variable "version" {
+  default = "1.2.3"
+}
+
 resource "directory" "config" {
   path = "/etc/myapp"
   mode = "0755"
@@ -50,7 +54,7 @@ resource "directory" "config" {
 resource "file" "config" {
   path    = "${directory.config.path}/config.json"
   content = <<-EOF
-    {"name": "myapp", "version": "1.0.0"}
+    {"name": "myapp", "version": "${var.version}"}
   EOF
 }
 ```
