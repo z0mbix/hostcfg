@@ -40,7 +40,7 @@ When using roles, variables are resolved with the following precedence (highest 
 
 1. **CLI variables** (`-e port=6380`) - override everything
 2. **Role instantiation variables** (`variables = { ... }`)
-3. **Role defaults** (`roles/<name>/defaults/variables.hcl`)
+3. **Role defaults** (`roles/<name>/variables.hcl`)
 4. **Main config defaults** (`variable "x" { default = ... }`)
 
 ## Dependencies

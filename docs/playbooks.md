@@ -85,10 +85,10 @@ Variables are resolved with the following precedence (highest to lowest):
 
 1. **CLI variables** (`-e port=6380`) - override everything
 2. **Role instantiation variables** (`variables = { ... }`)
-3. **Role defaults** (`roles/redis/defaults/variables.hcl`)
+3. **Role defaults** (`roles/redis/variables.hcl`)
 
 ```hcl
-# roles/redis/defaults/variables.hcl
+# roles/redis/variables.hcl
 variable "port" {
   default = 6379
 }
@@ -122,23 +122,20 @@ A typical multi-host setup with shared roles:
 .
 ├── roles/
 │   ├── base/
-│   │   ├── defaults/
-│   │   │   └── variables.hcl
-│   │   ├── files/
-│   │   │   └── sshd_config.tpl
-│   │   └── resources.hcl
+│   │   ├── variables.hcl
+│   │   ├── resources.hcl
+│   │   └── files/
+│   │       └── sshd_config.tpl
 │   ├── redis/
-│   │   ├── defaults/
-│   │   │   └── variables.hcl
-│   │   ├── files/
-│   │   │   └── redis.conf.tpl
-│   │   └── resources.hcl
+│   │   ├── variables.hcl
+│   │   ├── resources.hcl
+│   │   └── files/
+│   │       └── redis.conf.tpl
 │   └── webapp/
-│       ├── defaults/
-│       │   └── variables.hcl
-│       ├── files/
-│       │   └── config.tpl
-│       └── resources.hcl
+│       ├── variables.hcl
+│       ├── resources.hcl
+│       └── files/
+│           └── config.tpl
 ├── hosts/
 │   ├── webserver/
 │   │   ├── hostcfg.hcl
@@ -239,7 +236,7 @@ hostcfg apply -c ./hosts/webserver -e environment=staging
 ## Tips
 
 - **Keep roles focused**: Each role should handle one concern (e.g., redis, nginx, app)
-- **Use role defaults**: Define sensible defaults in `defaults/variables.hcl`
+- **Use role defaults**: Define sensible defaults in `variables.hcl`
 - **Document variables**: Add descriptions to variables for clarity
 - **Test incrementally**: Apply roles one at a time during development
 - **Use `recursive = true`**: For directory resources that may need parent directories created
