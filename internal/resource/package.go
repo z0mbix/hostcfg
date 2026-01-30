@@ -171,8 +171,13 @@ func (r *PackageResource) Apply(ctx context.Context, plan *Plan, apply bool) err
 
 // detectPackageManager detects and returns the appropriate package manager
 func detectPackageManager() (PackageManager, error) {
-	// Check OS first for BSD systems
+	// Check OS first for BSD and macOS systems
 	switch runtime.GOOS {
+	case "darwin":
+		if _, err := exec.LookPath("brew"); err == nil {
+			return &HomebrewPackageManager{}, nil
+		}
+		return nil, fmt.Errorf("no supported package manager found for macOS (Homebrew not installed)")
 	case "freebsd":
 		if _, err := exec.LookPath("pkg"); err == nil {
 			return &PkgPackageManager{}, nil

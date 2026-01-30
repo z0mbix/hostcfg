@@ -242,6 +242,8 @@ func (r *ServiceResource) Apply(ctx context.Context, plan *Plan, apply bool) err
 // detectServiceManager detects and returns the appropriate service manager
 func detectServiceManager() (ServiceManager, error) {
 	switch runtime.GOOS {
+	case "darwin":
+		return &LaunchctlServiceManager{}, nil
 	case "freebsd":
 		return &FreeBSDServiceManager{}, nil
 	case "openbsd":

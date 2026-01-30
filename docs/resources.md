@@ -99,6 +99,9 @@ resource "package" "nginx" {
 
 **Supported package managers** (auto-detected):
 
+macOS:
+- `brew` (Homebrew)
+
 Linux:
 - `apt` (Debian, Ubuntu)
 - `dnf` (Fedora, RHEL 8+)
@@ -112,6 +115,8 @@ BSD:
 - `pkg_add` (NetBSD, fallback)
 
 **Idempotency**: Queries package manager to check if package is installed and at correct version.
+
+**macOS notes**: Version pinning uses Homebrew's `@version` syntax (e.g., `node@18`). Not all formulae support versioned installs.
 
 ## service
 
@@ -135,6 +140,9 @@ resource "service" "nginx" {
 
 **Supported service managers** (auto-detected):
 
+macOS:
+- `launchctl` (launchd)
+
 Linux:
 - `systemd` (most modern distributions)
 
@@ -144,6 +152,8 @@ BSD:
 - `rc.d` scripts (NetBSD)
 
 **Idempotency**: Queries the service manager to check current running and enabled state.
+
+**macOS notes**: Services can be specified by short name (e.g., `nginx`) which maps to Homebrew's `homebrew.mxcl.nginx` label, or by full launchd label (e.g., `com.example.myservice`). The service manager handles both user LaunchAgents and system LaunchDaemons.
 
 ## cron
 

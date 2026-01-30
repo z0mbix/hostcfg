@@ -9,12 +9,13 @@ A simple, idempotent configuration management tool using HCL syntax.
 - **Dependency management** - Automatic ordering with cycle detection
 - **Roles** - Reusable configuration modules with variables and templates
 - **Diff output** - Clear visualization of planned changes
-- **Cross-platform** - Supports Linux and BSD systems
+- **Cross-platform** - Supports Linux, macOS, and BSD systems
 
 ## Supported Platforms
 
 | Platform | Package Manager | Service Manager |
 |----------|----------------|-----------------|
+| macOS | Homebrew | launchctl |
 | Debian/Ubuntu | apt | systemd |
 | Fedora/RHEL 8+ | dnf | systemd |
 | RHEL 7/CentOS | yum | systemd |
