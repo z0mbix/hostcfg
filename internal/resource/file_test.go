@@ -575,7 +575,9 @@ func TestFileResource_Idempotent(t *testing.T) {
 	if plan1.Action != ActionCreate {
 		t.Error("first run should create")
 	}
-	r.Apply(ctx, plan1, true)
+	if err := r.Apply(ctx, plan1, true); err != nil {
+		t.Fatalf("failed to apply: %v", err)
+	}
 
 	// Second apply (should be no-op)
 	current2, _ := r.Read(ctx)

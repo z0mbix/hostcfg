@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hashicorp/hcl/v2"
-	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/z0mbix/hostcfg/internal/config"
 	"github.com/zclconf/go-cty/cty"
 )
@@ -658,41 +656,6 @@ func TestLoader_transformDependencies(t *testing.T) {
 	}
 }
 
-// Helper to create a RoleBlock for testing
-func createRoleBlock(name, source string, variables map[string]cty.Value) *config.RoleBlock {
-	block := &config.RoleBlock{
-		Name:   name,
-		Source: source,
-	}
-
-	if len(variables) > 0 {
-		// Create an HCL expression for the variables
-		// This is a simplified version; in reality, we'd parse HCL
-		parser := hclparse.NewParser()
-		hclContent := "variables = {"
-		for k, v := range variables {
-			switch v.Type() {
-			case cty.Number:
-				f, _ := v.AsBigFloat().Float64()
-				hclContent += k + " = " + string(rune(int(f))) + "\n"
-			case cty.String:
-				hclContent += k + " = \"" + v.AsString() + "\"\n"
-			}
-		}
-		hclContent += "}"
-
-		file, _ := parser.ParseHCL([]byte(hclContent), "test.hcl")
-		if file != nil {
-			attrs, _ := file.Body.JustAttributes()
-			if varAttr, ok := attrs["variables"]; ok {
-				block.Variables = varAttr.Expr
-			}
-		}
-	}
-
-	return block
-}
-
 func TestLoader_SourceNotDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -725,6 +688,3 @@ role "broken" {
 		t.Error("expected error for file as role source, got nil")
 	}
 }
-
-// Helper to suppress unused warning for hcl import
-var _ hcl.Body

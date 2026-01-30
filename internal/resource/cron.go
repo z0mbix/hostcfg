@@ -237,12 +237,14 @@ func (r *CronResource) writeCrontab(ctx context.Context, cronUser, content strin
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer os.Remove(tmpfile.Name())
+	defer func() { _ = os.Remove(tmpfile.Name()) }()
 
 	if _, err := tmpfile.WriteString(content); err != nil {
 		return fmt.Errorf("failed to write temp file: %w", err)
 	}
-	tmpfile.Close()
+	if err := tmpfile.Close(); err != nil {
+		return fmt.Errorf("failed to close temp file: %w", err)
+	}
 
 	// Install the crontab
 	cmd := exec.CommandContext(ctx, "crontab", "-u", cronUser, tmpfile.Name())

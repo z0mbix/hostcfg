@@ -43,8 +43,10 @@ func TestStandardFunctions(t *testing.T) {
 
 func TestEnvFunc(t *testing.T) {
 	// Set an environment variable for testing
-	os.Setenv("HOSTCFG_TEST_VAR", "test_value")
-	defer os.Unsetenv("HOSTCFG_TEST_VAR")
+	if err := os.Setenv("HOSTCFG_TEST_VAR", "test_value"); err != nil {
+		t.Fatalf("failed to set env var: %v", err)
+	}
+	defer func() { _ = os.Unsetenv("HOSTCFG_TEST_VAR") }()
 
 	result, err := envFunc.Call([]cty.Value{cty.StringVal("HOSTCFG_TEST_VAR")})
 	if err != nil {
@@ -58,7 +60,7 @@ func TestEnvFunc(t *testing.T) {
 
 func TestEnvFunc_NonExistent(t *testing.T) {
 	// Ensure variable doesn't exist
-	os.Unsetenv("HOSTCFG_NONEXISTENT_VAR")
+	_ = os.Unsetenv("HOSTCFG_NONEXISTENT_VAR")
 
 	result, err := envFunc.Call([]cty.Value{cty.StringVal("HOSTCFG_NONEXISTENT_VAR")})
 	if err != nil {

@@ -61,7 +61,7 @@ func (r *GroupResource) Read(ctx context.Context) (*State, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read /etc/group: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -183,7 +183,7 @@ func (r *GroupResource) Apply(ctx context.Context, plan *Plan, apply bool) error
 		}
 
 		// Add members if specified
-		if r.config.Members != nil && len(r.config.Members) > 0 {
+		if len(r.config.Members) > 0 {
 			if err := r.setGroupMembers(ctx, r.config.Members); err != nil {
 				return err
 			}

@@ -48,15 +48,15 @@ func (p *Printer) PrintPlan(r resource.Resource, plan *resource.Plan) {
 		p.printChange(plan.Action, change)
 	}
 
-	fmt.Fprintln(p.out)
+	_, _ = fmt.Fprintln(p.out)
 }
 
 func (p *Printer) printHeader(symbol, resourceID string, c color.Attribute) {
 	if p.useColors {
 		colored := color.New(c, color.Bold)
-		colored.Fprintf(p.out, "%s %s\n", symbol, resourceID)
+		_, _ = colored.Fprintf(p.out, "%s %s\n", symbol, resourceID)
 	} else {
-		fmt.Fprintf(p.out, "%s %s\n", symbol, resourceID)
+		_, _ = fmt.Fprintf(p.out, "%s %s\n", symbol, resourceID)
 	}
 }
 
@@ -74,18 +74,18 @@ func (p *Printer) printChange(action resource.Action, change resource.Change) {
 func (p *Printer) printAddition(change resource.Change) {
 	green := color.New(color.FgGreen)
 	if p.useColors {
-		green.Fprintf(p.out, "    + %s = %s\n", change.Attribute, p.formatValue(change.New))
+		_, _ = green.Fprintf(p.out, "    + %s = %s\n", change.Attribute, p.formatValue(change.New))
 	} else {
-		fmt.Fprintf(p.out, "    + %s = %s\n", change.Attribute, p.formatValue(change.New))
+		_, _ = fmt.Fprintf(p.out, "    + %s = %s\n", change.Attribute, p.formatValue(change.New))
 	}
 }
 
 func (p *Printer) printDeletion(change resource.Change) {
 	red := color.New(color.FgRed)
 	if p.useColors {
-		red.Fprintf(p.out, "    - %s = %s\n", change.Attribute, p.formatValue(change.Old))
+		_, _ = red.Fprintf(p.out, "    - %s = %s\n", change.Attribute, p.formatValue(change.Old))
 	} else {
-		fmt.Fprintf(p.out, "    - %s = %s\n", change.Attribute, p.formatValue(change.Old))
+		_, _ = fmt.Fprintf(p.out, "    - %s = %s\n", change.Attribute, p.formatValue(change.Old))
 	}
 }
 
@@ -98,9 +98,9 @@ func (p *Printer) printModification(change resource.Change) {
 		newStr, newOk := change.New.(string)
 		if oldOk && newOk {
 			if p.useColors {
-				yellow.Fprintf(p.out, "    ~ %s: (changed)\n", change.Attribute)
+				_, _ = yellow.Fprintf(p.out, "    ~ %s: (changed)\n", change.Attribute)
 			} else {
-				fmt.Fprintf(p.out, "    ~ %s: (changed)\n", change.Attribute)
+				_, _ = fmt.Fprintf(p.out, "    ~ %s: (changed)\n", change.Attribute)
 			}
 			p.printTextDiff(oldStr, newStr)
 			return
@@ -109,12 +109,12 @@ func (p *Printer) printModification(change resource.Change) {
 
 	// Regular attribute change
 	if p.useColors {
-		yellow.Fprintf(p.out, "    ~ %s: %s => %s\n",
+		_, _ = yellow.Fprintf(p.out, "    ~ %s: %s => %s\n",
 			change.Attribute,
 			p.formatValue(change.Old),
 			p.formatValue(change.New))
 	} else {
-		fmt.Fprintf(p.out, "    ~ %s: %s => %s\n",
+		_, _ = fmt.Fprintf(p.out, "    ~ %s: %s => %s\n",
 			change.Attribute,
 			p.formatValue(change.Old),
 			p.formatValue(change.New))
@@ -132,12 +132,6 @@ func (p *Printer) printTextDiff(old, new string) {
 	oldLines := strings.Split(old, "\n")
 	newLines := strings.Split(new, "\n")
 
-	// Simple line diff
-	maxLines := len(oldLines)
-	if len(newLines) > maxLines {
-		maxLines = len(newLines)
-	}
-
 	// Use unified diff style
 	for i := 0; i < len(oldLines) || i < len(newLines); i++ {
 		var oldLine, newLine string
@@ -153,20 +147,20 @@ func (p *Printer) printTextDiff(old, new string) {
 
 		if hasOld && hasNew && oldLine == newLine {
 			// Unchanged line
-			fmt.Fprintf(p.out, "        %s\n", oldLine)
+			_, _ = fmt.Fprintf(p.out, "        %s\n", oldLine)
 		} else {
 			if hasOld && oldLine != "" {
 				if p.useColors {
-					red.Fprintf(p.out, "      - %s\n", oldLine)
+					_, _ = red.Fprintf(p.out, "      - %s\n", oldLine)
 				} else {
-					fmt.Fprintf(p.out, "      - %s\n", oldLine)
+					_, _ = fmt.Fprintf(p.out, "      - %s\n", oldLine)
 				}
 			}
 			if hasNew && newLine != "" {
 				if p.useColors {
-					green.Fprintf(p.out, "      + %s\n", newLine)
+					_, _ = green.Fprintf(p.out, "      + %s\n", newLine)
 				} else {
-					fmt.Fprintf(p.out, "      + %s\n", newLine)
+					_, _ = fmt.Fprintf(p.out, "      + %s\n", newLine)
 				}
 			}
 		}
@@ -191,7 +185,7 @@ func (p *Printer) formatValue(v interface{}) string {
 
 // PrintSummary prints the plan summary
 func (p *Printer) PrintSummary(toAdd, toChange, toDestroy int) {
-	fmt.Fprintf(p.out, "Plan: %d to add, %d to change, %d to destroy.\n",
+	_, _ = fmt.Fprintf(p.out, "Plan: %d to add, %d to change, %d to destroy.\n",
 		toAdd, toChange, toDestroy)
 }
 
@@ -199,8 +193,8 @@ func (p *Printer) PrintSummary(toAdd, toChange, toDestroy int) {
 func (p *Printer) PrintNoChanges() {
 	green := color.New(color.FgGreen)
 	if p.useColors {
-		green.Fprintln(p.out, "No changes. Infrastructure is up-to-date.")
+		_, _ = green.Fprintln(p.out, "No changes. Infrastructure is up-to-date.")
 	} else {
-		fmt.Fprintln(p.out, "No changes. Infrastructure is up-to-date.")
+		_, _ = fmt.Fprintln(p.out, "No changes. Infrastructure is up-to-date.")
 	}
 }

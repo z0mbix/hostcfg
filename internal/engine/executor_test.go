@@ -427,7 +427,9 @@ func TestFindConfigFile(t *testing.T) {
 			setup: func(t *testing.T) string {
 				tmpDir := t.TempDir()
 				path := filepath.Join(tmpDir, "config.hcl")
-				os.WriteFile(path, []byte(""), 0644)
+				if err := os.WriteFile(path, []byte(""), 0644); err != nil {
+					t.Fatalf("failed to write file: %v", err)
+				}
 				return path
 			},
 			path:      "", // set in test

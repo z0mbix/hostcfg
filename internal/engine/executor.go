@@ -430,15 +430,15 @@ func (e *Executor) Apply(ctx context.Context, result *PlanResult, dryRun bool) e
 		}
 
 		if dryRun {
-			fmt.Fprintf(e.out, "Would %s %s\n", plan.Action, resource.ID(r))
+			_, _ = fmt.Fprintf(e.out, "Would %s %s\n", plan.Action, resource.ID(r))
 			continue
 		}
 
-		fmt.Fprintf(e.out, "Applying %s...\n", resource.ID(r))
+		_, _ = fmt.Fprintf(e.out, "Applying %s...\n", resource.ID(r))
 		if err := r.Apply(ctx, plan, true); err != nil {
 			return fmt.Errorf("failed to apply %s: %w", resource.ID(r), err)
 		}
-		fmt.Fprintf(e.out, "  Done.\n")
+		_, _ = fmt.Fprintf(e.out, "  Done.\n")
 	}
 
 	return nil

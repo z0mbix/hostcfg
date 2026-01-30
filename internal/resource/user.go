@@ -61,7 +61,7 @@ func (r *UserResource) Read(ctx context.Context) (*State, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read /etc/passwd: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -253,7 +253,7 @@ func (r *UserResource) Apply(ctx context.Context, plan *Plan, apply bool) error 
 		if r.config.Comment != nil {
 			args = append(args, "-c", *r.config.Comment)
 		}
-		if r.config.Groups != nil && len(r.config.Groups) > 0 {
+		if len(r.config.Groups) > 0 {
 			args = append(args, "-G", strings.Join(r.config.Groups, ","))
 		}
 		if r.config.System != nil && *r.config.System {
