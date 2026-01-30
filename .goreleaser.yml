@@ -1,0 +1,111 @@
+version: 2
+
+project_name: hostcfg
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod verify
+
+builds:
+  - id: hostcfg
+    main: ./cmd/hostcfg
+    binary: hostcfg
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    goos:
+      - darwin
+      - linux
+      - freebsd
+      - openbsd
+      - netbsd
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      # Only build amd64 for BSDs
+      - goos: freebsd
+        goarch: arm64
+      - goos: openbsd
+        goarch: arm64
+      - goos: netbsd
+        goarch: arm64
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE*
+      - docs/*
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - typo
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Other
+      order: 999
+
+release:
+  github:
+    owner: z0mbix
+    name: hostcfg
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## hostcfg {{ .Tag }}
+
+    A simple, idempotent configuration management tool using HCL syntax.
+
+    ### Supported Platforms
+
+    | Platform | Package Manager | Service Manager |
+    |----------|----------------|-----------------|
+    | macOS | Homebrew | launchctl |
+    | Debian/Ubuntu | apt | systemd |
+    | Fedora/RHEL 8+ | dnf | systemd |
+    | RHEL 7/CentOS | yum | systemd |
+    | Arch Linux | pacman | systemd |
+    | FreeBSD | pkg | rc.d |
+    | OpenBSD | pkg_add | rcctl |
+    | NetBSD | pkgin, pkg_add | rc.d |
+
+  footer: |
+    ---
+
+    **Full Changelog**: https://github.com/z0mbix/hostcfg/compare/{{ .PreviousTag }}...{{ .Tag }}

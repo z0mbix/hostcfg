@@ -11,7 +11,19 @@ var (
 	configPath string
 	variables  []string
 	noColor    bool
+
+	// Version information (set by main)
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
 )
+
+// SetVersionInfo sets the version information from build-time variables
+func SetVersionInfo(v, c, d string) {
+	version = v
+	commit = c
+	date = d
+}
 
 // NewRootCmd creates the root command
 func NewRootCmd() *cobra.Command {
@@ -38,8 +50,22 @@ exec commands, and hostname configuration.`,
 	rootCmd.AddCommand(NewPlanCmd())
 	rootCmd.AddCommand(NewApplyCmd())
 	rootCmd.AddCommand(NewValidateCmd())
+	rootCmd.AddCommand(NewVersionCmd())
 
 	return rootCmd
+}
+
+// NewVersionCmd creates the version command
+func NewVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print version information",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("hostcfg %s\n", version)
+			fmt.Printf("  commit: %s\n", commit)
+			fmt.Printf("  built:  %s\n", date)
+		},
+	}
 }
 
 // Execute runs the CLI
