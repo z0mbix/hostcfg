@@ -2,12 +2,16 @@
 default:
     @just --list
 
+# Initialise the project
+init:
+    mkdir -p bin
+
 # Build the binary
-build:
+build: init
     go build -o bin/hostcfg ./cmd/hostcfg
 
 # Build with version info
-build-release version:
+build-release version: init
     go build -ldflags "-X main.version={{ version }}" -o bin/hostcfg ./cmd/hostcfg
 
 # Run all tests
