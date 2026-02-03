@@ -293,7 +293,7 @@ func (r *DownloadResource) download(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to download: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("download failed with status: %s", resp.Status)
@@ -314,7 +314,7 @@ func (r *DownloadResource) download(ctx context.Context) error {
 	defer func() {
 		// Clean up temp file on error
 		if tmpPath != "" {
-			os.Remove(tmpPath)
+			_ = os.Remove(tmpPath)
 		}
 	}()
 
@@ -323,19 +323,19 @@ func (r *DownloadResource) download(ctx context.Context) error {
 	if r.config.Mode != nil {
 		parsed, err := strconv.ParseUint(*r.config.Mode, 8, 32)
 		if err != nil {
-			tmpFile.Close()
+			_ = tmpFile.Close()
 			return fmt.Errorf("invalid mode: %w", err)
 		}
 		mode = os.FileMode(parsed)
 	}
 	if err := tmpFile.Chmod(mode); err != nil {
-		tmpFile.Close()
+		_ = tmpFile.Close()
 		return fmt.Errorf("failed to set temp file mode: %w", err)
 	}
 
 	// Write to temp file
 	_, err = io.Copy(tmpFile, resp.Body)
-	tmpFile.Close()
+	_ = tmpFile.Close()
 	if err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
@@ -394,7 +394,7 @@ func computeFileChecksum(path, algorithm string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var h hash.Hash
 	switch algorithm {
