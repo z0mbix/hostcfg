@@ -1,18 +1,18 @@
+version: "2"
+
 linters:
   enable:
     - errcheck
-    - gosimple
     - govet
     - ineffassign
     - staticcheck
     - unused
-
-linters-settings:
-  errcheck:
-    check-type-assertions: false
-    check-blank: false
-    # Don't exclude any functions - catch all unchecked errors
-    exclude-functions: []
+  settings:
+    errcheck:
+      check-type-assertions: false
+      check-blank: false
+      # Don't exclude any functions - catch all unchecked errors
+      exclude-functions: []
 
 issues:
   # Don't use default exclusions - we want to catch everything CI catches

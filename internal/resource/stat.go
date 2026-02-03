@@ -118,7 +118,7 @@ func (r *StatResource) Read(ctx context.Context) (*State, error) {
 
 		// Timestamps
 		state.Attributes["mtime"] = info.ModTime().Unix()
-		state.Attributes["atime"] = stat.Atim.Sec
+		state.Attributes["atime"] = getAtime(stat)
 	}
 
 	return state, nil

@@ -14,9 +14,11 @@ go mod verify
 echo "Building..."
 go build -v ./...
 
-# Run golangci-lint (same as CI)
+# Run golangci-lint (same as CI) using mise to ensure correct version
 echo "Running golangci-lint..."
-if command -v golangci-lint &> /dev/null; then
+if command -v mise &> /dev/null; then
+    mise exec -- golangci-lint run ./...
+elif command -v golangci-lint &> /dev/null; then
     golangci-lint run ./...
 else
     echo "Error: golangci-lint not found"

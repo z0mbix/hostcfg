@@ -507,7 +507,7 @@ func (e *Executor) extractResourceAttributes(block *config.ResourceBlock) map[st
 				if stat, ok := info.Sys().(*syscall.Stat_t); ok {
 					attrs["uid"] = cty.NumberIntVal(int64(stat.Uid))
 					attrs["gid"] = cty.NumberIntVal(int64(stat.Gid))
-					attrs["atime"] = cty.NumberIntVal(stat.Atim.Sec)
+					attrs["atime"] = cty.NumberIntVal(getAtime(stat))
 
 					if u, err := user.LookupId(strconv.Itoa(int(stat.Uid))); err == nil {
 						attrs["owner"] = cty.StringVal(u.Username)
