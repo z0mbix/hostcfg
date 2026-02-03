@@ -53,7 +53,7 @@ resource "package" "build_essential" {
 
 # Create a system info file using facts
 resource "file" "system_info" {
-  path    = "${fact.user.home}/.config/${var.app_name}/system-info.txt"
+  path    = "${directory.app_config.path}/system-info.txt"
   content = <<-EOF
     System Information
     ==================
@@ -75,22 +75,18 @@ resource "file" "system_info" {
       GID: ${fact.user.gid}
   EOF
   mode = "0644"
-
-  depends_on = ["directory.app_config"]
 }
 
 # Use facts in a template file
 resource "file" "app_config" {
-  path    = "${fact.user.home}/.config/${var.app_name}/config.yaml"
+  path    = "${directory.app_config.path}/config.yaml"
   content = template("./files/facts-config.yaml.tpl")
   mode    = "0640"
-
-  depends_on = ["directory.app_config"]
 }
 
 # Use ternary operator for simple OS-specific values
 resource "file" "os_specific" {
-  path = "${fact.user.home}/.config/${var.app_name}/os-specific.conf"
+  path = "${directory.app_config.path}/os-specific.conf"
   content = join("\n", [
     "# OS-specific configuration",
     "# Generated for ${fact.os.distribution} (${fact.os.family})",
@@ -101,6 +97,4 @@ resource "file" "os_specific" {
     "",
   ])
   mode = "0644"
-
-  depends_on = ["directory.app_config"]
 }
