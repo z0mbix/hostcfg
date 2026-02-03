@@ -5,11 +5,14 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/z0mbix/hostcfg/internal/config"
+	"github.com/z0mbix/hostcfg/internal/engine"
 )
 
 var (
 	configPath string
 	variables  []string
+	varFiles   []string
 	noColor    bool
 
 	// Version information (set by main)
@@ -43,6 +46,8 @@ exec commands, and hostname configuration.`,
 		"Path to config file or directory (default: hostcfg.hcl or current directory)")
 	rootCmd.PersistentFlags().StringArrayVarP(&variables, "var", "e", nil,
 		"Set a variable (key=value)")
+	rootCmd.PersistentFlags().StringArrayVarP(&varFiles, "var-file", "f", nil,
+		"Path to variable file (can be used multiple times)")
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false,
 		"Disable colored output")
 
@@ -93,4 +98,41 @@ func parseVariables(vars []string) (map[string]string, error) {
 		}
 	}
 	return result, nil
+}
+
+// loadVariables loads variables from files and CLI flags, applying them to the executor
+// Precedence (lowest to highest):
+// 1. Auto-loaded var files (hostcfg.vars.hcl, hostcfg.vars.hcl.local, *.auto.vars.hcl)
+// 2. Explicit var files (--var-file, in order specified)
+// 3. CLI variables (-e, highest priority)
+func loadVariables(executor *engine.Executor, configDir string) error {
+	loader := config.NewVarFileLoader()
+
+	// 1. Find and load auto-load files
+	autoFiles, _ := loader.FindAutoLoadFiles(configDir)
+
+	// 2. Combine auto-load files with explicit var files
+	allVarFiles := append(autoFiles, varFiles...)
+
+	// 3. Load all variable files in order
+	if len(allVarFiles) > 0 {
+		vars, diags := loader.LoadMultipleVarFiles(allVarFiles)
+		if diags.HasErrors() {
+			return fmt.Errorf("failed to load variable files: %s", diags.Error())
+		}
+		for name, value := range vars {
+			executor.SetVariableValue(name, value)
+		}
+	}
+
+	// 4. Apply CLI variables (highest precedence)
+	cliVars, err := parseVariables(variables)
+	if err != nil {
+		return err
+	}
+	for k, v := range cliVars {
+		executor.SetVariable(k, v)
+	}
+
+	return nil
 }

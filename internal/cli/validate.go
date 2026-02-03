@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/z0mbix/hostcfg/internal/engine"
@@ -30,16 +31,18 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Determine config directory for auto-loading var files
+	configDir := path
+	if !isDir {
+		configDir = filepath.Dir(path)
+	}
+
 	// Create executor
 	executor := engine.NewExecutor(os.Stdout, !noColor)
 
-	// Set variables
-	vars, err := parseVariables(variables)
-	if err != nil {
+	// Load variables (auto-load files, --var-file, -e)
+	if err := loadVariables(executor, configDir); err != nil {
 		return err
-	}
-	for k, v := range vars {
-		executor.SetVariable(k, v)
 	}
 
 	// Load config
