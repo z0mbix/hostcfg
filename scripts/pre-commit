@@ -1,0 +1,26 @@
+#!/bin/bash
+# Pre-commit hook for hostcfg
+# Runs tests and linter before allowing commits
+
+set -e
+
+echo "Running pre-commit checks..."
+
+# Run go vet
+echo "Running go vet..."
+go vet ./...
+
+# Run golangci-lint
+echo "Running golangci-lint..."
+if command -v golangci-lint &> /dev/null; then
+    golangci-lint run ./...
+else
+    echo "Warning: golangci-lint not found, skipping lint check"
+    echo "Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
+fi
+
+# Run tests
+echo "Running tests..."
+go test ./...
+
+echo "All pre-commit checks passed!"

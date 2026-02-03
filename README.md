@@ -85,6 +85,8 @@ hostcfg apply
 | `file` | Manage files with content and permissions |
 | `directory` | Manage directories |
 | `link` | Manage symbolic links |
+| `download` | Download files from URLs with checksum verification |
+| `stat` | Gather file/directory information (read-only) |
 | `package` | Install/remove system packages |
 | `service` | Manage system services |
 | `user` | Manage system users |
@@ -96,6 +98,16 @@ hostcfg apply
 ## Examples
 
 See the [examples/](examples/) directory for complete configurations.
+
+## Development
+
+Install the pre-commit hook to run tests and linting before each commit:
+
+```bash
+cp scripts/pre-commit .git/hooks/pre-commit
+```
+
+The hook runs `go vet`, `golangci-lint`, and `go test` before allowing commits.
 
 ## License
 
