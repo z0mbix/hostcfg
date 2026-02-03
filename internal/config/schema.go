@@ -30,15 +30,20 @@ type Variable struct {
 
 // ResourceBlock represents a resource definition in HCL
 type ResourceBlock struct {
-	Type      string   `hcl:"type,label"`
-	Name      string   `hcl:"name,label"`
-	DependsOn []string `hcl:"depends_on,optional"`
-	Body      hcl.Body `hcl:",remain"`
+	Type      string         `hcl:"type,label"`
+	Name      string         `hcl:"name,label"`
+	DependsOn []string       `hcl:"depends_on,optional"`
+	ForEach   hcl.Expression `hcl:"for_each,optional"`
+	Body      hcl.Body       `hcl:",remain"`
 
 	// RoleBaseDir is the base directory for role resources (for template path resolution).
 	// This is set by the role loader and is empty for non-role resources.
 	// No HCL tag means gohcl ignores this field during decoding.
 	RoleBaseDir string
+
+	// ForEachKey stores the iteration key for expanded resources.
+	// Empty for non-for_each resources, set during expansion.
+	ForEachKey string
 }
 
 // FileResourceConfig holds file resource specific attributes

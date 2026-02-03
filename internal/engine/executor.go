@@ -39,18 +39,24 @@ type Executor struct {
 	useColors bool
 	roles     map[string]*role.Role
 	cliVars   map[string]cty.Value
+
+	// for_each tracking
+	forEachValues        map[string]cty.Value  // resourceID -> each.value
+	forEachOriginalNames map[string][]string   // originalID -> []expandedIDs
 }
 
 // NewExecutor creates a new executor
 func NewExecutor(out io.Writer, useColors bool) *Executor {
 	return &Executor{
-		parser:    config.NewParser(),
-		graph:     NewGraph(),
-		printer:   diff.NewPrinter(out, useColors),
-		out:       out,
-		useColors: useColors,
-		roles:     make(map[string]*role.Role),
-		cliVars:   make(map[string]cty.Value),
+		parser:               config.NewParser(),
+		graph:                NewGraph(),
+		printer:              diff.NewPrinter(out, useColors),
+		out:                  out,
+		useColors:            useColors,
+		roles:                make(map[string]*role.Role),
+		cliVars:              make(map[string]cty.Value),
+		forEachValues:        make(map[string]cty.Value),
+		forEachOriginalNames: make(map[string][]string),
 	}
 }
 
@@ -96,6 +102,13 @@ func (e *Executor) loadConfig(cfg *config.Config) error {
 		}
 	}
 
+	// Phase 0.5: Expand for_each resources
+	expandedResources, err := e.expandForEachResources(cfg.Resources)
+	if err != nil {
+		return fmt.Errorf("failed to expand for_each resources: %w", err)
+	}
+	cfg.Resources = expandedResources
+
 	// First pass: extract resource attributes so they can be referenced
 	// by other resources. We decode each resource to get its attribute values.
 	for _, block := range cfg.Resources {
@@ -120,7 +133,18 @@ func (e *Executor) loadConfig(cfg *config.Config) error {
 			e.parser.SetRoleContext(block.RoleBaseDir)
 		}
 
-		ctx := e.parser.GetEvalContext()
+		// Build context with each.key/each.value if this is an expanded for_each resource
+		var ctx *hcl.EvalContext
+		if block.ForEachKey != "" {
+			eachKey := cty.StringVal(block.ForEachKey)
+			eachValue := e.forEachValues[block.Type+"."+block.Name]
+			if eachValue.IsNull() {
+				eachValue = eachKey // Fallback for sets where key == value
+			}
+			ctx = e.parser.BuildEvalContextWithEach(eachKey, eachValue)
+		} else {
+			ctx = e.parser.GetEvalContext()
+		}
 
 		// Extract implicit dependencies from resource references in expressions
 		implicitDeps := e.extractImplicitDependencies(block)
@@ -130,6 +154,9 @@ func (e *Executor) loadConfig(cfg *config.Config) error {
 
 		// Expand role-level dependencies (role.xxx -> all resources in that role)
 		allDeps = e.expandRoleDependencies(allDeps)
+
+		// Expand for_each dependencies (reference to base name -> all expanded instances)
+		allDeps = e.expandForEachDependencies(allDeps)
 
 		r, err := resource.CreateWithDeps(block, allDeps, ctx)
 
@@ -174,6 +201,71 @@ func (e *Executor) expandRoleDependencies(deps []string) []string {
 	return result
 }
 
+// expandForEachResources expands any resource with for_each into multiple resources
+func (e *Executor) expandForEachResources(resources []*config.ResourceBlock) ([]*config.ResourceBlock, error) {
+	var result []*config.ResourceBlock
+
+	for _, block := range resources {
+		// Evaluate the for_each expression (returns nil if not present or null)
+		iterations, diags := e.parser.EvaluateForEach(block.ForEach)
+		if diags.HasErrors() {
+			return nil, fmt.Errorf("failed to evaluate for_each for %s.%s: %s",
+				block.Type, block.Name, diags.Error())
+		}
+
+		// If no for_each or it evaluates to null, keep the resource as-is
+		if iterations == nil {
+			result = append(result, block)
+			continue
+		}
+
+		if len(iterations) == 0 {
+			// Empty for_each - no resources created
+			continue
+		}
+
+		originalID := block.Type + "." + block.Name
+		var expandedIDs []string
+
+		// Create an expanded resource for each iteration
+		for key, value := range iterations {
+			expandedName := fmt.Sprintf("%s[\"%s\"]", block.Name, key)
+			expanded := &config.ResourceBlock{
+				Type:        block.Type,
+				Name:        expandedName,
+				DependsOn:   block.DependsOn, // Will be expanded in second pass
+				Body:        block.Body,      // Same body, will be decoded with each context
+				RoleBaseDir: block.RoleBaseDir,
+				ForEachKey:  key,
+			}
+
+			expandedID := block.Type + "." + expandedName
+			e.forEachValues[expandedID] = value
+			expandedIDs = append(expandedIDs, expandedID)
+
+			result = append(result, expanded)
+		}
+
+		e.forEachOriginalNames[originalID] = expandedIDs
+	}
+
+	return result, nil
+}
+
+// expandForEachDependencies expands references to for_each base names to all their instances
+func (e *Executor) expandForEachDependencies(deps []string) []string {
+	var result []string
+	for _, dep := range deps {
+		if expanded, ok := e.forEachOriginalNames[dep]; ok {
+			// This dependency references a for_each resource - depend on all instances
+			result = append(result, expanded...)
+		} else {
+			result = append(result, dep)
+		}
+	}
+	return result
+}
+
 // mergeDependencies combines explicit and implicit dependencies, removing duplicates
 func (e *Executor) mergeDependencies(explicit, implicit []string) []string {
 	seen := make(map[string]bool)
@@ -199,7 +291,19 @@ func (e *Executor) mergeDependencies(explicit, implicit []string) []string {
 // extractResourceAttributes extracts attribute values from a resource block
 // that can be referenced by other resources
 func (e *Executor) extractResourceAttributes(block *config.ResourceBlock) map[string]cty.Value {
-	ctx := e.parser.GetEvalContext()
+	// Build context with each.key/each.value if this is an expanded for_each resource
+	var ctx *hcl.EvalContext
+	if block.ForEachKey != "" {
+		eachKey := cty.StringVal(block.ForEachKey)
+		eachValue := e.forEachValues[block.Type+"."+block.Name]
+		if eachValue.IsNull() {
+			eachValue = eachKey // Fallback for sets where key == value
+		}
+		ctx = e.parser.BuildEvalContextWithEach(eachKey, eachValue)
+	} else {
+		ctx = e.parser.GetEvalContext()
+	}
+
 	attrs := make(map[string]cty.Value)
 
 	switch block.Type {

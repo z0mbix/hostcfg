@@ -888,3 +888,220 @@ func TestExecutor_expandRoleDependencies(t *testing.T) {
 		})
 	}
 }
+
+func TestExecutor_ForEach_WithSet(t *testing.T) {
+	tmpDir := t.TempDir()
+	hclPath := filepath.Join(tmpDir, "test.hcl")
+
+	content := `
+resource "file" "configs" {
+  for_each = toset(["app", "db", "cache"])
+  path     = "/tmp/${each.key}.conf"
+  content  = "config for ${each.value}"
+}
+`
+	if err := os.WriteFile(hclPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	e := NewExecutor(&buf, false)
+
+	err := e.LoadFile(hclPath)
+	if err != nil {
+		t.Fatalf("LoadFile failed: %v", err)
+	}
+
+	// Should have 3 expanded resources
+	all := e.graph.All()
+	if len(all) != 3 {
+		t.Errorf("expected 3 resources, got %d", len(all))
+		for _, r := range all {
+			t.Logf("  resource: %s.%s", r.Type(), r.Name())
+		}
+	}
+
+	// Verify resource names have Terraform-style brackets
+	expectedNames := map[string]bool{
+		`configs["app"]`:   false,
+		`configs["db"]`:    false,
+		`configs["cache"]`: false,
+	}
+	for _, r := range all {
+		if _, ok := expectedNames[r.Name()]; ok {
+			expectedNames[r.Name()] = true
+		}
+	}
+	for name, found := range expectedNames {
+		if !found {
+			t.Errorf("expected resource with name %q not found", name)
+		}
+	}
+}
+
+func TestExecutor_ForEach_WithMap(t *testing.T) {
+	tmpDir := t.TempDir()
+	hclPath := filepath.Join(tmpDir, "test.hcl")
+
+	content := `
+resource "file" "configs" {
+  for_each = tomap({
+    app   = "application config"
+    db    = "database config"
+  })
+  path    = "/tmp/${each.key}.conf"
+  content = each.value
+}
+`
+	if err := os.WriteFile(hclPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	e := NewExecutor(&buf, false)
+
+	err := e.LoadFile(hclPath)
+	if err != nil {
+		t.Fatalf("LoadFile failed: %v", err)
+	}
+
+	// Should have 2 expanded resources
+	all := e.graph.All()
+	if len(all) != 2 {
+		t.Errorf("expected 2 resources, got %d", len(all))
+	}
+}
+
+func TestExecutor_ForEach_EmptySet(t *testing.T) {
+	tmpDir := t.TempDir()
+	hclPath := filepath.Join(tmpDir, "test.hcl")
+
+	content := `
+resource "file" "configs" {
+  for_each = toset([])
+  path     = "/tmp/${each.key}.conf"
+  content  = "test"
+}
+`
+	if err := os.WriteFile(hclPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	e := NewExecutor(&buf, false)
+
+	err := e.LoadFile(hclPath)
+	if err != nil {
+		t.Fatalf("LoadFile failed: %v", err)
+	}
+
+	// Empty for_each should create no resources
+	all := e.graph.All()
+	if len(all) != 0 {
+		t.Errorf("expected 0 resources for empty for_each, got %d", len(all))
+	}
+}
+
+func TestExecutor_ForEach_Dependencies(t *testing.T) {
+	tmpDir := t.TempDir()
+	hclPath := filepath.Join(tmpDir, "test.hcl")
+
+	content := `
+resource "directory" "base" {
+  path = "/tmp/base"
+}
+
+resource "file" "configs" {
+  for_each   = toset(["one", "two"])
+  path       = "/tmp/base/${each.key}.conf"
+  content    = "test"
+  depends_on = ["directory.base"]
+}
+
+resource "exec" "finalize" {
+  command    = "echo done"
+  depends_on = ["file.configs"]
+}
+`
+	if err := os.WriteFile(hclPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	e := NewExecutor(&buf, false)
+
+	err := e.LoadFile(hclPath)
+	if err != nil {
+		t.Fatalf("LoadFile failed: %v", err)
+	}
+
+	// Should have 4 resources: 1 directory + 2 files + 1 exec
+	all := e.graph.All()
+	if len(all) != 4 {
+		t.Errorf("expected 4 resources, got %d", len(all))
+	}
+
+	// Verify topological sort works with for_each dependencies
+	sorted, err := e.graph.TopologicalSort()
+	if err != nil {
+		t.Fatalf("TopologicalSort failed: %v", err)
+	}
+
+	// Directory should come first
+	if sorted[0].Type() != "directory" {
+		t.Errorf("expected directory first, got %s", sorted[0].Type())
+	}
+
+	// Exec should come last (it depends on file.configs which expands to both instances)
+	if sorted[len(sorted)-1].Type() != "exec" {
+		t.Errorf("expected exec last, got %s", sorted[len(sorted)-1].Type())
+	}
+}
+
+func TestExecutor_expandForEachDependencies(t *testing.T) {
+	var buf bytes.Buffer
+	e := NewExecutor(&buf, false)
+
+	// Set up for_each tracking
+	e.forEachOriginalNames["package.tools"] = []string{
+		`package.tools["git"]`,
+		`package.tools["htop"]`,
+	}
+
+	tests := []struct {
+		name string
+		deps []string
+		want []string
+	}{
+		{
+			name: "expand for_each dependency",
+			deps: []string{"package.tools"},
+			want: []string{`package.tools["git"]`, `package.tools["htop"]`},
+		},
+		{
+			name: "keep regular dependency",
+			deps: []string{"file.other"},
+			want: []string{"file.other"},
+		},
+		{
+			name: "mixed dependencies",
+			deps: []string{"package.tools", "file.other"},
+			want: []string{`package.tools["git"]`, `package.tools["htop"]`, "file.other"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := e.expandForEachDependencies(tt.deps)
+			if len(got) != len(tt.want) {
+				t.Errorf("got %v, want %v", got, tt.want)
+				return
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("got[%d] = %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}

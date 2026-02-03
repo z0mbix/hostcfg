@@ -32,6 +32,8 @@ func TestStandardFunctions(t *testing.T) {
 		"tostring", "tonumber", "tobool",
 		// Custom functions
 		"env", "file", "basename", "dirname",
+		// For-each functions
+		"toset", "tomap",
 	}
 
 	for _, name := range expectedFuncs {
@@ -404,5 +406,123 @@ func TestCtyToInterface_List(t *testing.T) {
 	}
 	if list[0] != "a" || list[1] != "b" || list[2] != "c" {
 		t.Errorf("unexpected list contents: %v", list)
+	}
+}
+
+func TestTosetFunc(t *testing.T) {
+	// Test converting a list to a set
+	listVal := cty.ListVal([]cty.Value{
+		cty.StringVal("a"),
+		cty.StringVal("b"),
+		cty.StringVal("c"),
+	})
+
+	result, err := tosetFunc.Call([]cty.Value{listVal})
+	if err != nil {
+		t.Fatalf("tosetFunc failed: %v", err)
+	}
+
+	if !result.Type().IsSetType() {
+		t.Errorf("expected set type, got %s", result.Type().FriendlyName())
+	}
+
+	// Check that all elements are present
+	if result.LengthInt() != 3 {
+		t.Errorf("expected 3 elements, got %d", result.LengthInt())
+	}
+}
+
+func TestTosetFunc_Deduplicates(t *testing.T) {
+	// Test that toset removes duplicates
+	listVal := cty.ListVal([]cty.Value{
+		cty.StringVal("a"),
+		cty.StringVal("b"),
+		cty.StringVal("a"), // Duplicate
+		cty.StringVal("c"),
+		cty.StringVal("b"), // Duplicate
+	})
+
+	result, err := tosetFunc.Call([]cty.Value{listVal})
+	if err != nil {
+		t.Fatalf("tosetFunc failed: %v", err)
+	}
+
+	if result.LengthInt() != 3 {
+		t.Errorf("expected 3 unique elements, got %d", result.LengthInt())
+	}
+}
+
+func TestTosetFunc_AlreadySet(t *testing.T) {
+	// Test that toset on a set returns it unchanged
+	setVal := cty.SetVal([]cty.Value{
+		cty.StringVal("x"),
+		cty.StringVal("y"),
+	})
+
+	result, err := tosetFunc.Call([]cty.Value{setVal})
+	if err != nil {
+		t.Fatalf("tosetFunc failed: %v", err)
+	}
+
+	if !result.Type().IsSetType() {
+		t.Errorf("expected set type, got %s", result.Type().FriendlyName())
+	}
+
+	if result.LengthInt() != 2 {
+		t.Errorf("expected 2 elements, got %d", result.LengthInt())
+	}
+}
+
+func TestTosetFunc_EmptyList(t *testing.T) {
+	// Test empty list
+	listVal := cty.ListValEmpty(cty.String)
+
+	result, err := tosetFunc.Call([]cty.Value{listVal})
+	if err != nil {
+		t.Fatalf("tosetFunc failed: %v", err)
+	}
+
+	if result.LengthInt() != 0 {
+		t.Errorf("expected 0 elements, got %d", result.LengthInt())
+	}
+}
+
+func TestTomapFunc(t *testing.T) {
+	// Test converting an object to a map
+	objVal := cty.ObjectVal(map[string]cty.Value{
+		"key1": cty.StringVal("value1"),
+		"key2": cty.StringVal("value2"),
+	})
+
+	result, err := tomapFunc.Call([]cty.Value{objVal})
+	if err != nil {
+		t.Fatalf("tomapFunc failed: %v", err)
+	}
+
+	if !result.Type().IsMapType() {
+		t.Errorf("expected map type, got %s", result.Type().FriendlyName())
+	}
+
+	// Check values
+	resultMap := result.AsValueMap()
+	if len(resultMap) != 2 {
+		t.Errorf("expected 2 elements, got %d", len(resultMap))
+	}
+}
+
+func TestTomapFunc_AlreadyMap(t *testing.T) {
+	// Test that tomap on a map returns it unchanged
+	mapVal := cty.MapVal(map[string]cty.Value{
+		"a": cty.StringVal("1"),
+		"b": cty.StringVal("2"),
+	})
+
+	result, err := tomapFunc.Call([]cty.Value{mapVal})
+	if err != nil {
+		t.Fatalf("tomapFunc failed: %v", err)
+	}
+
+	if !result.Type().IsMapType() {
+		t.Errorf("expected map type, got %s", result.Type().FriendlyName())
 	}
 }

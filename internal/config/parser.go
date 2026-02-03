@@ -241,3 +241,84 @@ func (p *Parser) DecodeResourceBody(body hcl.Body, target interface{}) hcl.Diagn
 	ctx := p.buildEvalContext(nil)
 	return gohcl.DecodeBody(body, ctx, target)
 }
+
+// BuildEvalContextWithEach creates an eval context that includes the "each" variable
+// for use when evaluating resource bodies during for_each expansion
+func (p *Parser) BuildEvalContextWithEach(eachKey, eachValue cty.Value) *hcl.EvalContext {
+	// Start with the base context
+	ctx := p.buildEvalContext(nil)
+
+	// Add the "each" object with key and value
+	ctx.Variables["each"] = cty.ObjectVal(map[string]cty.Value{
+		"key":   eachKey,
+		"value": eachValue,
+	})
+
+	return ctx
+}
+
+// EvaluateForEach evaluates the for_each expression and returns the iteration items
+// Returns nil if there is no for_each expression or if it evaluates to null
+// For sets: returns map where key == value
+// For maps: returns the map directly
+func (p *Parser) EvaluateForEach(expr hcl.Expression) (map[string]cty.Value, hcl.Diagnostics) {
+	if expr == nil {
+		return nil, nil
+	}
+
+	ctx := p.GetEvalContext()
+	val, diags := expr.Value(ctx)
+	if diags.HasErrors() {
+		return nil, diags
+	}
+
+	// If the expression evaluates to null, treat it as "no for_each"
+	// This can happen when for_each is not specified in the HCL
+	if val.IsNull() {
+		return nil, nil
+	}
+
+	if !val.IsKnown() {
+		return nil, hcl.Diagnostics{{
+			Severity: hcl.DiagError,
+			Summary:  "Invalid for_each value",
+			Detail:   "for_each value must be known",
+		}}
+	}
+
+	result := make(map[string]cty.Value)
+
+	switch {
+	case val.Type().IsSetType():
+		// For sets: key == value
+		it := val.ElementIterator()
+		for it.Next() {
+			_, elem := it.Element()
+			// Sets in for_each must have string elements
+			if elem.Type() != cty.String {
+				return nil, hcl.Diagnostics{{
+					Severity: hcl.DiagError,
+					Summary:  "Invalid for_each set element",
+					Detail:   "for_each set elements must be strings",
+				}}
+			}
+			key := elem.AsString()
+			result[key] = elem
+		}
+
+	case val.Type().IsMapType() || val.Type().IsObjectType():
+		// For maps: key is map key, value is map value
+		for k, v := range val.AsValueMap() {
+			result[k] = v
+		}
+
+	default:
+		return nil, hcl.Diagnostics{{
+			Severity: hcl.DiagError,
+			Summary:  "Invalid for_each type",
+			Detail:   fmt.Sprintf("for_each must be a set or map, got %s", val.Type().FriendlyName()),
+		}}
+	}
+
+	return result, nil
+}
