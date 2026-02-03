@@ -19,6 +19,7 @@ type Parser struct {
 	resources   map[string]map[string]cty.Value // type -> name -> attributes
 	baseDir     string                          // directory containing HCL files
 	roleBaseDir string                          // current role's directory (empty if not in role)
+	facts       cty.Value                       // system facts for use in expressions
 }
 
 // NewParser creates a new HCL parser
@@ -53,6 +54,11 @@ func (p *Parser) SetRoleContext(roleDir string) {
 // ClearRoleContext resets to main config context
 func (p *Parser) ClearRoleContext() {
 	p.roleBaseDir = ""
+}
+
+// SetFacts sets the system facts for use during parsing
+func (p *Parser) SetFacts(facts cty.Value) {
+	p.facts = facts
 }
 
 // getEffectiveBaseDir returns roleBaseDir if set, otherwise baseDir
@@ -215,6 +221,11 @@ func (p *Parser) buildEvalContext(extra map[string]cty.Value) *hcl.EvalContext {
 	// Build the context variables map
 	ctxVars := map[string]cty.Value{
 		"var": cty.ObjectVal(vars),
+	}
+
+	// Add system facts (e.g., fact.os.family, fact.hostname)
+	if p.facts != cty.NilVal && !p.facts.IsNull() {
+		ctxVars["fact"] = p.facts
 	}
 
 	// Add resource references (e.g., directory.web_root_dir.path)

@@ -79,7 +79,7 @@ resource "file" "env_file" {
 }
 ```
 
-Variables are accessible via `.var.<name>` and resources via `.<resource_type>.<resource_name>.<attribute>`.
+Variables are accessible via `.var.<name>`, resources via `.<resource_type>.<resource_name>.<attribute>`, and system facts via `.fact.<path>` (see [System Facts](facts.md)).
 
 ### Sprig Template Functions
 

@@ -17,7 +17,7 @@ variable "app_port" {
 
 ## Using Variables
 
-Use variables with the `var.` prefix:
+Use variables with the `var.` prefix (see also [System Facts](facts.md) for the `fact.` namespace):
 
 ```hcl
 resource "file" "config" {

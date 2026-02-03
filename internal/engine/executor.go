@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/z0mbix/hostcfg/internal/config"
 	"github.com/z0mbix/hostcfg/internal/diff"
+	"github.com/z0mbix/hostcfg/internal/facts"
 	"github.com/z0mbix/hostcfg/internal/resource"
 	"github.com/z0mbix/hostcfg/internal/role"
 	"github.com/zclconf/go-cty/cty"
@@ -47,8 +48,15 @@ type Executor struct {
 
 // NewExecutor creates a new executor
 func NewExecutor(out io.Writer, useColors bool) *Executor {
+	parser := config.NewParser()
+
+	// Gather system facts and inject into parser
+	if f, err := facts.Gather(); err == nil {
+		parser.SetFacts(f.ToCtyValue())
+	}
+
 	return &Executor{
-		parser:               config.NewParser(),
+		parser:               parser,
 		graph:                NewGraph(),
 		printer:              diff.NewPrinter(out, useColors),
 		out:                  out,

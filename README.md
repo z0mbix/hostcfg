@@ -8,6 +8,7 @@ A simple, idempotent configuration management tool using HCL syntax.
 - **HCL syntax** - Familiar configuration language with variable interpolation
 - **Dependency management** - Automatic ordering with cycle detection
 - **Roles** - Reusable configuration modules with variables and templates
+- **System facts** - Ansible-style facts for OS, architecture, and user info
 - **Diff output** - Clear visualization of planned changes
 - **Cross-platform** - Supports Linux, macOS, and BSD systems
 
@@ -73,6 +74,7 @@ hostcfg apply
 - [Resources](docs/resources.md) - All resource types and attributes
 - [Variables](docs/variables.md) - Variable definitions and dependencies
 - [Functions](docs/functions.md) - Built-in functions
+- [System Facts](docs/facts.md) - OS, architecture, and user information
 - [Roles](docs/roles.md) - Reusable configuration modules
 - [Playbooks](docs/playbooks.md) - Multi-role configurations
 
