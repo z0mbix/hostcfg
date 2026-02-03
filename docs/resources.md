@@ -272,6 +272,77 @@ resource "link" "config" {
 
 **Idempotency**: Uses `os.Readlink` to check current symlink target.
 
+## download
+
+Downloads a file from a URL with optional checksum verification.
+
+```hcl
+resource "download" "kubectl" {
+  url      = "https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl"
+  dest     = "/usr/local/bin/kubectl"
+  checksum = "sha256:4717660fd1466ec72d59000bb1d9f5cdc91fac31d491043ca62b34398e0799ce"
+  mode     = "0755"
+  owner    = "root"
+  group    = "root"
+}
+```
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `url` | string | yes | URL to download from |
+| `dest` | string | yes | Destination file path |
+| `checksum` | string | no | Expected checksum in format `algorithm:hash` (md5, sha1, sha256, sha512) |
+| `owner` | string | no | File owner username |
+| `group` | string | no | File group name |
+| `mode` | string | no | File permissions in octal (default: `0644`) |
+| `force` | bool | no | Force re-download even if file exists |
+| `timeout` | int | no | HTTP timeout in seconds (default: `30`) |
+
+**Idempotency**: Computes checksum of existing file and compares with expected. Only downloads if checksum differs or file doesn't exist.
+
+**Atomic downloads**: Files are downloaded to a temporary file first, then renamed to the destination. This ensures partial downloads don't leave corrupted files.
+
+## stat
+
+Gathers information about a file, directory, or symlink. This is a read-only resource that populates attributes for use by other resources.
+
+```hcl
+resource "stat" "backup" {
+  path   = "/etc/myapp/config.bak"
+  follow = true  # Follow symlinks (default: true)
+}
+
+# Use stat result in another resource
+resource "file" "info" {
+  path    = "/tmp/backup-info.txt"
+  content = "Backup exists: ${stat.backup.exists}\nSize: ${stat.backup.size}"
+}
+```
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `path` | string | yes | Path to stat |
+| `follow` | bool | no | Follow symlinks (default: `true`) |
+
+**Populated attributes** (available for reference after Read):
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `exists` | bool | Whether the path exists |
+| `isdir` | bool | Whether it's a directory |
+| `isfile` | bool | Whether it's a regular file |
+| `islink` | bool | Whether it's a symbolic link |
+| `size` | int | File size in bytes |
+| `mode` | string | File permissions in octal (e.g., `0644`) |
+| `owner` | string | Owner username |
+| `group` | string | Group name |
+| `uid` | int | Owner user ID |
+| `gid` | int | Owner group ID |
+| `mtime` | int | Modification time (Unix timestamp) |
+| `atime` | int | Access time (Unix timestamp) |
+
+**Idempotency**: Stat is a read-only resource that never makes changes.
+
 ## Resource References
 
 Resources can reference attributes of other resources using `resource_type.resource_name.attribute`. Dependencies are automatically inferred:
@@ -301,3 +372,5 @@ resource "file" "config" {
 | `user` | `name`, `uid`, `gid`, `home`, `shell` |
 | `group` | `name`, `gid` |
 | `link` | `path`, `target` |
+| `download` | `url`, `dest`, `checksum`, `mode`, `owner`, `group` |
+| `stat` | `path`, `exists`, `isdir`, `isfile`, `islink`, `size`, `mode`, `owner`, `group`, `uid`, `gid`, `mtime`, `atime` |

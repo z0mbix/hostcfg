@@ -29,6 +29,8 @@ var knownResourceTypes = map[string]bool{
 	"user":      true,
 	"group":     true,
 	"link":      true,
+	"download":  true,
+	"stat":      true,
 }
 
 // Executor runs the configuration management process
@@ -429,6 +431,33 @@ func (e *Executor) extractResourceAttributes(block *config.ResourceBlock) map[st
 		if diags := gohcl.DecodeBody(block.Body, ctx, &cfg); !diags.HasErrors() {
 			attrs["path"] = cty.StringVal(cfg.Path)
 			attrs["target"] = cty.StringVal(cfg.Target)
+		}
+
+	case "download":
+		var cfg config.DownloadResourceConfig
+		if diags := gohcl.DecodeBody(block.Body, ctx, &cfg); !diags.HasErrors() {
+			attrs["url"] = cty.StringVal(cfg.URL)
+			attrs["dest"] = cty.StringVal(cfg.Dest)
+			if cfg.Checksum != nil {
+				attrs["checksum"] = cty.StringVal(*cfg.Checksum)
+			}
+			if cfg.Mode != nil {
+				attrs["mode"] = cty.StringVal(*cfg.Mode)
+			}
+			if cfg.Owner != nil {
+				attrs["owner"] = cty.StringVal(*cfg.Owner)
+			}
+			if cfg.Group != nil {
+				attrs["group"] = cty.StringVal(*cfg.Group)
+			}
+		}
+
+	case "stat":
+		var cfg config.StatResourceConfig
+		if diags := gohcl.DecodeBody(block.Body, ctx, &cfg); !diags.HasErrors() {
+			attrs["path"] = cty.StringVal(cfg.Path)
+			// Note: stat attributes like exists, isdir, isfile, etc. are populated at runtime
+			// and can be referenced by other resources after Read() is called
 		}
 	}
 

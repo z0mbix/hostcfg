@@ -134,3 +134,21 @@ type LinkResourceConfig struct {
 	Force  *bool   `hcl:"force,optional"`  // Replace existing file/directory
 	Ensure *string `hcl:"ensure,optional"` // "present" or "absent"
 }
+
+// DownloadResourceConfig holds download resource specific attributes
+type DownloadResourceConfig struct {
+	URL      string  `hcl:"url"`
+	Dest     string  `hcl:"dest"`
+	Checksum *string `hcl:"checksum,optional"` // "algorithm:hash" (md5, sha1, sha256, sha512)
+	Owner    *string `hcl:"owner,optional"`
+	Group    *string `hcl:"group,optional"`
+	Mode     *string `hcl:"mode,optional"`
+	Force    *bool   `hcl:"force,optional"`   // Force re-download even if checksum matches
+	Timeout  *int    `hcl:"timeout,optional"` // HTTP timeout in seconds (default: 30)
+}
+
+// StatResourceConfig holds stat resource specific attributes
+type StatResourceConfig struct {
+	Path   string `hcl:"path"`
+	Follow *bool  `hcl:"follow,optional"` // Follow symlinks (default: true)
+}
