@@ -60,6 +60,12 @@ func (e *Executor) SetVariable(name, value string) {
 	e.cliVars[name] = cty.StringVal(value)
 }
 
+// SetVariableValue sets a variable with a cty.Value directly (for non-string types from var files)
+func (e *Executor) SetVariableValue(name string, value cty.Value) {
+	e.parser.SetVariableValue(name, value)
+	e.cliVars[name] = value
+}
+
 // LoadFile loads and parses an HCL configuration file
 func (e *Executor) LoadFile(filename string) error {
 	cfg, diags := e.parser.ParseFile(filename)

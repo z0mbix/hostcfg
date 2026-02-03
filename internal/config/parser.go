@@ -135,6 +135,10 @@ func (p *Parser) ParseDirectory(dir string) (*Config, hcl.Diagnostics) {
 		if !strings.HasSuffix(name, ".hcl") {
 			continue
 		}
+		// Skip variable files (*.vars.hcl) - these are loaded separately
+		if strings.HasSuffix(name, ".vars.hcl") {
+			continue
+		}
 
 		path := filepath.Join(dir, name)
 		src, err := os.ReadFile(path)
