@@ -1105,3 +1105,395 @@ func TestExecutor_expandForEachDependencies(t *testing.T) {
 		})
 	}
 }
+
+func TestExecutor_When_ConditionTrue(t *testing.T) {
+	tmpDir := t.TempDir()
+	hclPath := filepath.Join(tmpDir, "test.hcl")
+	filePath := filepath.Join(tmpDir, "output.txt")
+
+	content := `
+resource "file" "test" {
+  when    = [true]
+  path    = "` + filePath + `"
+  content = "test content"
+}
+`
+	if err := os.WriteFile(hclPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	e := NewExecutor(&buf, false)
+
+	if err := e.LoadFile(hclPath); err != nil {
+		t.Fatalf("LoadFile failed: %v", err)
+	}
+
+	ctx := context.Background()
+	result, err := e.Plan(ctx)
+	if err != nil {
+		t.Fatalf("Plan failed: %v", err)
+	}
+
+	// Resource should not be skipped when condition is true
+	if result.ToSkip != 0 {
+		t.Errorf("expected 0 to skip, got %d", result.ToSkip)
+	}
+	if result.ToAdd != 1 {
+		t.Errorf("expected 1 to add, got %d", result.ToAdd)
+	}
+}
+
+func TestExecutor_When_ConditionFalse(t *testing.T) {
+	tmpDir := t.TempDir()
+	hclPath := filepath.Join(tmpDir, "test.hcl")
+	filePath := filepath.Join(tmpDir, "output.txt")
+
+	content := `
+resource "file" "test" {
+  when    = [false]
+  path    = "` + filePath + `"
+  content = "test content"
+}
+`
+	if err := os.WriteFile(hclPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	e := NewExecutor(&buf, false)
+
+	if err := e.LoadFile(hclPath); err != nil {
+		t.Fatalf("LoadFile failed: %v", err)
+	}
+
+	ctx := context.Background()
+	result, err := e.Plan(ctx)
+	if err != nil {
+		t.Fatalf("Plan failed: %v", err)
+	}
+
+	// Resource should be skipped when condition is false
+	if result.ToSkip != 1 {
+		t.Errorf("expected 1 to skip, got %d", result.ToSkip)
+	}
+	if result.ToAdd != 0 {
+		t.Errorf("expected 0 to add, got %d", result.ToAdd)
+	}
+}
+
+func TestExecutor_When_MultipleConditions(t *testing.T) {
+	tmpDir := t.TempDir()
+	hclPath := filepath.Join(tmpDir, "test.hcl")
+	filePath := filepath.Join(tmpDir, "output.txt")
+
+	// Test with all conditions true
+	content := `
+resource "file" "test" {
+  when    = [true, true, true]
+  path    = "` + filePath + `"
+  content = "test content"
+}
+`
+	if err := os.WriteFile(hclPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	e := NewExecutor(&buf, false)
+
+	if err := e.LoadFile(hclPath); err != nil {
+		t.Fatalf("LoadFile failed: %v", err)
+	}
+
+	ctx := context.Background()
+	result, err := e.Plan(ctx)
+	if err != nil {
+		t.Fatalf("Plan failed: %v", err)
+	}
+
+	if result.ToSkip != 0 {
+		t.Errorf("expected 0 to skip when all conditions true, got %d", result.ToSkip)
+	}
+}
+
+func TestExecutor_When_OneConditionFalse(t *testing.T) {
+	tmpDir := t.TempDir()
+	hclPath := filepath.Join(tmpDir, "test.hcl")
+	filePath := filepath.Join(tmpDir, "output.txt")
+
+	// Test with one false condition
+	content := `
+resource "file" "test" {
+  when    = [true, false, true]
+  path    = "` + filePath + `"
+  content = "test content"
+}
+`
+	if err := os.WriteFile(hclPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	e := NewExecutor(&buf, false)
+
+	if err := e.LoadFile(hclPath); err != nil {
+		t.Fatalf("LoadFile failed: %v", err)
+	}
+
+	ctx := context.Background()
+	result, err := e.Plan(ctx)
+	if err != nil {
+		t.Fatalf("Plan failed: %v", err)
+	}
+
+	// Should be skipped because one condition is false
+	if result.ToSkip != 1 {
+		t.Errorf("expected 1 to skip when one condition false, got %d", result.ToSkip)
+	}
+}
+
+func TestExecutor_When_WithStatReference(t *testing.T) {
+	tmpDir := t.TempDir()
+	hclPath := filepath.Join(tmpDir, "test.hcl")
+	filePath := filepath.Join(tmpDir, "output.txt")
+	existingFile := filepath.Join(tmpDir, "existing.txt")
+
+	// Create an existing file to stat
+	if err := os.WriteFile(existingFile, []byte("exists"), 0644); err != nil {
+		t.Fatalf("failed to write existing file: %v", err)
+	}
+
+	content := `
+resource "stat" "check" {
+  path = "` + existingFile + `"
+}
+
+resource "file" "test" {
+  when    = [!stat.check.exists]
+  path    = "` + filePath + `"
+  content = "test content"
+}
+`
+	if err := os.WriteFile(hclPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	e := NewExecutor(&buf, false)
+
+	if err := e.LoadFile(hclPath); err != nil {
+		t.Fatalf("LoadFile failed: %v", err)
+	}
+
+	ctx := context.Background()
+	result, err := e.Plan(ctx)
+	if err != nil {
+		t.Fatalf("Plan failed: %v", err)
+	}
+
+	// File should be skipped because stat.check.exists is true (file exists)
+	// and we're checking !stat.check.exists
+	if result.ToSkip != 1 {
+		t.Errorf("expected 1 to skip (file exists), got %d", result.ToSkip)
+	}
+}
+
+func TestExecutor_When_WithStatNonExistent(t *testing.T) {
+	tmpDir := t.TempDir()
+	hclPath := filepath.Join(tmpDir, "test.hcl")
+	filePath := filepath.Join(tmpDir, "output.txt")
+	nonExistentFile := filepath.Join(tmpDir, "nonexistent.txt")
+
+	content := `
+resource "stat" "check" {
+  path = "` + nonExistentFile + `"
+}
+
+resource "file" "test" {
+  when    = [!stat.check.exists]
+  path    = "` + filePath + `"
+  content = "test content"
+}
+`
+	if err := os.WriteFile(hclPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	e := NewExecutor(&buf, false)
+
+	if err := e.LoadFile(hclPath); err != nil {
+		t.Fatalf("LoadFile failed: %v", err)
+	}
+
+	ctx := context.Background()
+	result, err := e.Plan(ctx)
+	if err != nil {
+		t.Fatalf("Plan failed: %v", err)
+	}
+
+	// File should NOT be skipped because stat.check.exists is false (file doesn't exist)
+	// and we're checking !stat.check.exists which is true
+	if result.ToSkip != 0 {
+		t.Errorf("expected 0 to skip (file doesn't exist), got %d", result.ToSkip)
+	}
+	if result.ToAdd != 1 {
+		t.Errorf("expected 1 to add, got %d", result.ToAdd)
+	}
+}
+
+func TestExecutor_When_CascadeSkip(t *testing.T) {
+	tmpDir := t.TempDir()
+	hclPath := filepath.Join(tmpDir, "test.hcl")
+	filePath := filepath.Join(tmpDir, "output.txt")
+	childPath := filepath.Join(tmpDir, "child.txt")
+
+	content := `
+resource "file" "parent" {
+  when    = [false]
+  path    = "` + filePath + `"
+  content = "parent content"
+}
+
+resource "file" "child" {
+  path       = "` + childPath + `"
+  content    = "child content"
+  depends_on = ["file.parent"]
+}
+`
+	if err := os.WriteFile(hclPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	e := NewExecutor(&buf, false)
+
+	if err := e.LoadFile(hclPath); err != nil {
+		t.Fatalf("LoadFile failed: %v", err)
+	}
+
+	ctx := context.Background()
+	result, err := e.Plan(ctx)
+	if err != nil {
+		t.Fatalf("Plan failed: %v", err)
+	}
+
+	// Both resources should be skipped - parent due to when condition,
+	// child due to dependency being skipped
+	if result.ToSkip != 2 {
+		t.Errorf("expected 2 to skip (cascade), got %d", result.ToSkip)
+	}
+	if result.ToAdd != 0 {
+		t.Errorf("expected 0 to add, got %d", result.ToAdd)
+	}
+}
+
+func TestExecutor_When_NoWhenAttribute(t *testing.T) {
+	tmpDir := t.TempDir()
+	hclPath := filepath.Join(tmpDir, "test.hcl")
+	filePath := filepath.Join(tmpDir, "output.txt")
+
+	// Resource without when attribute should always execute
+	content := `
+resource "file" "test" {
+  path    = "` + filePath + `"
+  content = "test content"
+}
+`
+	if err := os.WriteFile(hclPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	e := NewExecutor(&buf, false)
+
+	if err := e.LoadFile(hclPath); err != nil {
+		t.Fatalf("LoadFile failed: %v", err)
+	}
+
+	ctx := context.Background()
+	result, err := e.Plan(ctx)
+	if err != nil {
+		t.Fatalf("Plan failed: %v", err)
+	}
+
+	if result.ToSkip != 0 {
+		t.Errorf("expected 0 to skip (no when), got %d", result.ToSkip)
+	}
+	if result.ToAdd != 1 {
+		t.Errorf("expected 1 to add, got %d", result.ToAdd)
+	}
+}
+
+func TestExecutor_When_WithFactReference(t *testing.T) {
+	tmpDir := t.TempDir()
+	hclPath := filepath.Join(tmpDir, "test.hcl")
+	filePath := filepath.Join(tmpDir, "output.txt")
+
+	// Test with fact reference - this test verifies fact.os.family can be referenced
+	// The actual skip depends on the running system
+	content := `
+resource "file" "test" {
+  when    = [fact.os.family == "nonexistent"]
+  path    = "` + filePath + `"
+  content = "test content"
+}
+`
+	if err := os.WriteFile(hclPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	e := NewExecutor(&buf, false)
+
+	if err := e.LoadFile(hclPath); err != nil {
+		t.Fatalf("LoadFile failed: %v", err)
+	}
+
+	ctx := context.Background()
+	result, err := e.Plan(ctx)
+	if err != nil {
+		t.Fatalf("Plan failed: %v", err)
+	}
+
+	// Should be skipped because OS family is not "nonexistent"
+	if result.ToSkip != 1 {
+		t.Errorf("expected 1 to skip (fact mismatch), got %d", result.ToSkip)
+	}
+}
+
+func TestExecutor_When_WithForEach(t *testing.T) {
+	tmpDir := t.TempDir()
+	hclPath := filepath.Join(tmpDir, "test.hcl")
+
+	content := `
+resource "file" "configs" {
+  for_each = toset(["app", "db"])
+  when     = [false]
+  path     = "/tmp/${each.key}.conf"
+  content  = "config for ${each.value}"
+}
+`
+	if err := os.WriteFile(hclPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	e := NewExecutor(&buf, false)
+
+	if err := e.LoadFile(hclPath); err != nil {
+		t.Fatalf("LoadFile failed: %v", err)
+	}
+
+	ctx := context.Background()
+	result, err := e.Plan(ctx)
+	if err != nil {
+		t.Fatalf("Plan failed: %v", err)
+	}
+
+	// Both for_each instances should be skipped
+	if result.ToSkip != 2 {
+		t.Errorf("expected 2 to skip (for_each with when=false), got %d", result.ToSkip)
+	}
+}

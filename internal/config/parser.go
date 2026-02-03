@@ -272,6 +272,61 @@ func (p *Parser) BuildEvalContextWithEach(eachKey, eachValue cty.Value) *hcl.Eva
 	return ctx
 }
 
+// EvaluateWhen evaluates the when expression and returns whether the resource should execute.
+// Returns: shouldExecute, failedConditionDescription, error
+// - Handles nil expression (returns true, "", nil)
+// - Evaluates tuple/list of bools
+// - Returns false with description if any condition is false
+func (p *Parser) EvaluateWhen(expr hcl.Expression, ctx *hcl.EvalContext) (bool, string, error) {
+	if expr == nil {
+		return true, "", nil
+	}
+
+	val, diags := expr.Value(ctx)
+	if diags.HasErrors() {
+		return false, "", fmt.Errorf("failed to evaluate when expression: %s", diags.Error())
+	}
+
+	// If the expression evaluates to null, treat it as "no when"
+	if val.IsNull() {
+		return true, "", nil
+	}
+
+	if !val.IsKnown() {
+		return false, "", fmt.Errorf("when expression must be known")
+	}
+
+	// The when expression should be a tuple/list of booleans
+	if !val.Type().IsTupleType() && !val.Type().IsListType() {
+		// Single boolean value
+		if val.Type() == cty.Bool {
+			if val.True() {
+				return true, "", nil
+			}
+			return false, "condition => false", nil
+		}
+		return false, "", fmt.Errorf("when must be a list of boolean expressions, got %s", val.Type().FriendlyName())
+	}
+
+	// Iterate through all conditions
+	it := val.ElementIterator()
+	conditionIndex := 0
+	for it.Next() {
+		_, elem := it.Element()
+
+		if elem.Type() != cty.Bool {
+			return false, "", fmt.Errorf("when condition[%d] must be a boolean, got %s", conditionIndex, elem.Type().FriendlyName())
+		}
+
+		if !elem.True() {
+			return false, fmt.Sprintf("condition[%d] => false", conditionIndex), nil
+		}
+		conditionIndex++
+	}
+
+	return true, "", nil
+}
+
 // EvaluateForEach evaluates the for_each expression and returns the iteration items
 // Returns nil if there is no for_each expression or if it evaluates to null
 // For sets: returns map where key == value

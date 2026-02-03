@@ -29,7 +29,17 @@ func NewPrinter(out io.Writer, useColors bool) *Printer {
 
 // PrintPlan prints a resource plan with colored diff output
 func (p *Printer) PrintPlan(r resource.Resource, plan *resource.Plan) {
-	if plan == nil || !plan.HasChanges() {
+	if plan == nil {
+		return
+	}
+
+	// Handle skipped resources
+	if plan.Action == resource.ActionSkip {
+		p.printSkipped(r, plan)
+		return
+	}
+
+	if !plan.HasChanges() {
 		return
 	}
 
@@ -48,6 +58,23 @@ func (p *Printer) PrintPlan(r resource.Resource, plan *resource.Plan) {
 		p.printChange(plan.Action, change)
 	}
 
+	_, _ = fmt.Fprintln(p.out)
+}
+
+// printSkipped prints a skipped resource with its skip reason
+func (p *Printer) printSkipped(r resource.Resource, plan *resource.Plan) {
+	skipReason := plan.SkipReason
+	if skipReason == "" {
+		skipReason = "condition not met"
+	}
+
+	if p.useColors {
+		cyan := color.New(color.FgCyan, color.Bold)
+		_, _ = cyan.Fprintf(p.out, "# %s", resource.ID(r))
+		_, _ = fmt.Fprintf(p.out, " (skipped: %s)\n", skipReason)
+	} else {
+		_, _ = fmt.Fprintf(p.out, "# %s (skipped: %s)\n", resource.ID(r), skipReason)
+	}
 	_, _ = fmt.Fprintln(p.out)
 }
 
@@ -184,9 +211,14 @@ func (p *Printer) formatValue(v interface{}) string {
 }
 
 // PrintSummary prints the plan summary
-func (p *Printer) PrintSummary(toAdd, toChange, toDestroy int) {
-	_, _ = fmt.Fprintf(p.out, "Plan: %d to add, %d to change, %d to destroy.\n",
-		toAdd, toChange, toDestroy)
+func (p *Printer) PrintSummary(toAdd, toChange, toDestroy, toSkip int) {
+	if toSkip > 0 {
+		_, _ = fmt.Fprintf(p.out, "Plan: %d to add, %d to change, %d to destroy, %d to skip.\n",
+			toAdd, toChange, toDestroy, toSkip)
+	} else {
+		_, _ = fmt.Fprintf(p.out, "Plan: %d to add, %d to change, %d to destroy.\n",
+			toAdd, toChange, toDestroy)
+	}
 }
 
 // PrintNoChanges prints when there are no changes

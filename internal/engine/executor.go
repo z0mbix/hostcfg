@@ -47,8 +47,12 @@ type Executor struct {
 	cliVars   map[string]cty.Value
 
 	// for_each tracking
-	forEachValues        map[string]cty.Value  // resourceID -> each.value
-	forEachOriginalNames map[string][]string   // originalID -> []expandedIDs
+	forEachValues        map[string]cty.Value // resourceID -> each.value
+	forEachOriginalNames map[string][]string  // originalID -> []expandedIDs
+
+	// when tracking
+	whenExpressions  map[string]hcl.Expression // resourceID -> when expression
+	skippedResources map[string]string         // resourceID -> skip reason
 }
 
 // NewExecutor creates a new executor
@@ -70,6 +74,8 @@ func NewExecutor(out io.Writer, useColors bool) *Executor {
 		cliVars:              make(map[string]cty.Value),
 		forEachValues:        make(map[string]cty.Value),
 		forEachOriginalNames: make(map[string][]string),
+		whenExpressions:      make(map[string]hcl.Expression),
+		skippedResources:     make(map[string]string),
 	}
 }
 
@@ -193,6 +199,12 @@ func (e *Executor) loadConfig(cfg *config.Config) error {
 			return err
 		}
 
+		// Store when expression if present
+		resourceID := block.Type + "." + block.Name
+		if block.When != nil {
+			e.whenExpressions[resourceID] = block.When
+		}
+
 		e.graph.Add(r)
 	}
 
@@ -256,6 +268,7 @@ func (e *Executor) expandForEachResources(resources []*config.ResourceBlock) ([]
 				Body:        block.Body,      // Same body, will be decoded with each context
 				RoleBaseDir: block.RoleBaseDir,
 				ForEachKey:  key,
+				When:        block.When, // Preserve when expression
 			}
 
 			expandedID := block.Type + "." + expandedName
@@ -531,6 +544,31 @@ func (e *Executor) extractResourceAttributes(block *config.ResourceBlock) map[st
 // to find references to other resources, returning them as implicit dependencies
 func (e *Executor) extractImplicitDependencies(block *config.ResourceBlock) []string {
 	deps := make(map[string]bool)
+	selfRef := block.Type + "." + block.Name
+
+	// Helper function to extract resource references from an expression
+	extractFromExpr := func(expr hcl.Expression) {
+		if expr == nil {
+			return
+		}
+		for _, traversal := range expr.Variables() {
+			if len(traversal) >= 2 {
+				// Check if the root is a known resource type
+				rootName := traversal.RootName()
+				if knownResourceTypes[rootName] {
+					// This is a resource reference like directory.web_root_dir.path
+					// Extract the resource type and name
+					if nameStep, ok := traversal[1].(hcl.TraverseAttr); ok {
+						resourceRef := rootName + "." + nameStep.Name
+						// Don't add self-references
+						if resourceRef != selfRef {
+							deps[resourceRef] = true
+						}
+					}
+				}
+			}
+		}
+	}
 
 	// Get all attributes from the body
 	attrs, _ := block.Body.JustAttributes()
@@ -541,26 +579,11 @@ func (e *Executor) extractImplicitDependencies(block *config.ResourceBlock) []st
 			continue
 		}
 
-		// Get all variable references in this expression
-		for _, traversal := range attr.Expr.Variables() {
-			if len(traversal) >= 2 {
-				// Check if the root is a known resource type
-				rootName := traversal.RootName()
-				if knownResourceTypes[rootName] {
-					// This is a resource reference like directory.web_root_dir.path
-					// Extract the resource type and name
-					if nameStep, ok := traversal[1].(hcl.TraverseAttr); ok {
-						resourceRef := rootName + "." + nameStep.Name
-						// Don't add self-references
-						selfRef := block.Type + "." + block.Name
-						if resourceRef != selfRef {
-							deps[resourceRef] = true
-						}
-					}
-				}
-			}
-		}
+		extractFromExpr(attr.Expr)
 	}
+
+	// Also extract dependencies from the when expression
+	extractFromExpr(block.When)
 
 	// Convert map to slice
 	result := make([]string, 0, len(deps))
@@ -576,6 +599,9 @@ func (e *Executor) Plan(ctx context.Context) (*PlanResult, error) {
 		Plans: make(map[string]*resource.Plan),
 	}
 
+	// Reset skipped resources tracking
+	e.skippedResources = make(map[string]string)
+
 	// Get resources in dependency order
 	resources, err := e.graph.TopologicalSort()
 	if err != nil {
@@ -583,17 +609,57 @@ func (e *Executor) Plan(ctx context.Context) (*PlanResult, error) {
 	}
 
 	for _, r := range resources {
+		resourceID := resource.ID(r)
+
+		// Check if any dependency was skipped (cascade skip)
+		skipReason := e.checkDependencySkipped(r)
+		if skipReason != "" {
+			plan := &resource.Plan{
+				Action:     resource.ActionSkip,
+				SkipReason: skipReason,
+			}
+			result.Plans[resourceID] = plan
+			result.Resources = append(result.Resources, r)
+			result.ToSkip++
+			e.skippedResources[resourceID] = skipReason
+			continue
+		}
+
+		// Check when condition
+		if whenExpr, ok := e.whenExpressions[resourceID]; ok {
+			evalCtx := e.buildWhenEvalContext(r)
+			shouldExecute, failedCondition, err := e.parser.EvaluateWhen(whenExpr, evalCtx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to evaluate when condition for %s: %w", resourceID, err)
+			}
+			if !shouldExecute {
+				skipReason := "when condition false"
+				if failedCondition != "" {
+					skipReason = fmt.Sprintf("when %s", failedCondition)
+				}
+				plan := &resource.Plan{
+					Action:     resource.ActionSkip,
+					SkipReason: skipReason,
+				}
+				result.Plans[resourceID] = plan
+				result.Resources = append(result.Resources, r)
+				result.ToSkip++
+				e.skippedResources[resourceID] = skipReason
+				continue
+			}
+		}
+
 		current, err := r.Read(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read %s: %w", resource.ID(r), err)
+			return nil, fmt.Errorf("failed to read %s: %w", resourceID, err)
 		}
 
 		plan, err := r.Diff(ctx, current)
 		if err != nil {
-			return nil, fmt.Errorf("failed to diff %s: %w", resource.ID(r), err)
+			return nil, fmt.Errorf("failed to diff %s: %w", resourceID, err)
 		}
 
-		result.Plans[resource.ID(r)] = plan
+		result.Plans[resourceID] = plan
 		result.Resources = append(result.Resources, r)
 
 		if plan.HasChanges() {
@@ -611,24 +677,68 @@ func (e *Executor) Plan(ctx context.Context) (*PlanResult, error) {
 	return result, nil
 }
 
+// checkDependencySkipped checks if any dependency of the resource was skipped
+// Returns the skip reason if a dependency was skipped, empty string otherwise
+func (e *Executor) checkDependencySkipped(r resource.Resource) string {
+	for _, depID := range r.Dependencies() {
+		if _, skipped := e.skippedResources[depID]; skipped {
+			return fmt.Sprintf("dependency %s skipped", depID)
+		}
+		// Also check expanded for_each dependencies
+		if expanded, ok := e.forEachOriginalNames[depID]; ok {
+			for _, expandedID := range expanded {
+				if _, skipped := e.skippedResources[expandedID]; skipped {
+					return fmt.Sprintf("dependency %s skipped", expandedID)
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// buildWhenEvalContext builds the evaluation context for when expressions
+// This includes the current state of resources that this resource depends on
+func (e *Executor) buildWhenEvalContext(r resource.Resource) *hcl.EvalContext {
+	// Get the resource ID to check for for_each context
+	resourceID := resource.ID(r)
+
+	// Check if this is a for_each expanded resource
+	if eachValue, ok := e.forEachValues[resourceID]; ok {
+		// Extract the key from the resource name (e.g., `configs["app"]` -> "app")
+		name := r.Name()
+		if idx := strings.Index(name, "[\""); idx != -1 {
+			if endIdx := strings.Index(name[idx:], "\"]"); endIdx != -1 {
+				key := name[idx+2 : idx+endIdx]
+				return e.parser.BuildEvalContextWithEach(cty.StringVal(key), eachValue)
+			}
+		}
+	}
+
+	return e.parser.GetEvalContext()
+}
+
 // PrintPlan prints the execution plan
 func (e *Executor) PrintPlan(result *PlanResult) {
 	hasChanges := false
+	hasSkipped := false
 
 	for _, r := range result.Resources {
 		plan := result.Plans[resource.ID(r)]
-		if plan.HasChanges() {
+		if plan.Action == resource.ActionSkip {
+			hasSkipped = true
+			e.printer.PrintPlan(r, plan)
+		} else if plan.HasChanges() {
 			hasChanges = true
 			e.printer.PrintPlan(r, plan)
 		}
 	}
 
-	if !hasChanges {
+	if !hasChanges && !hasSkipped {
 		e.printer.PrintNoChanges()
 		return
 	}
 
-	e.printer.PrintSummary(result.ToAdd, result.ToChange, result.ToDestroy)
+	e.printer.PrintSummary(result.ToAdd, result.ToChange, result.ToDestroy, result.ToSkip)
 }
 
 // Apply applies the changes
@@ -671,6 +781,7 @@ type PlanResult struct {
 	ToAdd     int
 	ToChange  int
 	ToDestroy int
+	ToSkip    int
 }
 
 // HasChanges returns true if there are any changes in the plan

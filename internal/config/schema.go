@@ -34,6 +34,7 @@ type ResourceBlock struct {
 	Name      string         `hcl:"name,label"`
 	DependsOn []string       `hcl:"depends_on,optional"`
 	ForEach   hcl.Expression `hcl:"for_each,optional"`
+	When      hcl.Expression `hcl:"when,optional"`
 	Body      hcl.Body       `hcl:",remain"`
 
 	// RoleBaseDir is the base directory for role resources (for template path resolution).

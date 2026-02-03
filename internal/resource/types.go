@@ -32,6 +32,7 @@ const (
 	ActionCreate
 	ActionUpdate
 	ActionDelete
+	ActionSkip
 )
 
 func (a Action) String() string {
@@ -44,6 +45,8 @@ func (a Action) String() string {
 		return "update"
 	case ActionDelete:
 		return "delete"
+	case ActionSkip:
+		return "skip"
 	default:
 		return "unknown"
 	}
@@ -51,10 +54,11 @@ func (a Action) String() string {
 
 // Plan represents the planned changes for a resource
 type Plan struct {
-	Action  Action
-	Changes []Change
-	Before  *State
-	After   *State
+	Action     Action
+	Changes    []Change
+	Before     *State
+	After      *State
+	SkipReason string // Reason for skipping: "when condition false" or "dependency skipped"
 }
 
 // HasChanges returns true if there are any changes in the plan
