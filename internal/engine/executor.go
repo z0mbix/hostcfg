@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/user"
+	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
@@ -456,8 +459,68 @@ func (e *Executor) extractResourceAttributes(block *config.ResourceBlock) map[st
 		var cfg config.StatResourceConfig
 		if diags := gohcl.DecodeBody(block.Body, ctx, &cfg); !diags.HasErrors() {
 			attrs["path"] = cty.StringVal(cfg.Path)
-			// Note: stat attributes like exists, isdir, isfile, etc. are populated at runtime
-			// and can be referenced by other resources after Read() is called
+
+			// Perform stat operation to populate runtime attributes
+			follow := true
+			if cfg.Follow != nil {
+				follow = *cfg.Follow
+			}
+
+			var info os.FileInfo
+			var statErr error
+			if follow {
+				info, statErr = os.Stat(cfg.Path)
+			} else {
+				info, statErr = os.Lstat(cfg.Path)
+			}
+
+			if os.IsNotExist(statErr) {
+				attrs["exists"] = cty.BoolVal(false)
+				attrs["isdir"] = cty.BoolVal(false)
+				attrs["isfile"] = cty.BoolVal(false)
+				attrs["islink"] = cty.BoolVal(false)
+				attrs["size"] = cty.NumberIntVal(0)
+				attrs["mode"] = cty.StringVal("")
+				attrs["owner"] = cty.StringVal("")
+				attrs["group"] = cty.StringVal("")
+				attrs["uid"] = cty.NumberIntVal(-1)
+				attrs["gid"] = cty.NumberIntVal(-1)
+				attrs["mtime"] = cty.NumberIntVal(0)
+				attrs["atime"] = cty.NumberIntVal(0)
+			} else if statErr == nil {
+				attrs["exists"] = cty.BoolVal(true)
+				attrs["isdir"] = cty.BoolVal(info.IsDir())
+				attrs["isfile"] = cty.BoolVal(info.Mode().IsRegular())
+				attrs["size"] = cty.NumberIntVal(info.Size())
+				attrs["mode"] = cty.StringVal(fmt.Sprintf("%04o", info.Mode().Perm()))
+				attrs["mtime"] = cty.NumberIntVal(info.ModTime().Unix())
+
+				// Check if it's a symlink
+				linfo, lerr := os.Lstat(cfg.Path)
+				if lerr == nil {
+					attrs["islink"] = cty.BoolVal(linfo.Mode()&os.ModeSymlink != 0)
+				} else {
+					attrs["islink"] = cty.BoolVal(false)
+				}
+
+				// Get owner/group info
+				if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+					attrs["uid"] = cty.NumberIntVal(int64(stat.Uid))
+					attrs["gid"] = cty.NumberIntVal(int64(stat.Gid))
+					attrs["atime"] = cty.NumberIntVal(stat.Atim.Sec)
+
+					if u, err := user.LookupId(strconv.Itoa(int(stat.Uid))); err == nil {
+						attrs["owner"] = cty.StringVal(u.Username)
+					} else {
+						attrs["owner"] = cty.StringVal(strconv.Itoa(int(stat.Uid)))
+					}
+					if g, err := user.LookupGroupId(strconv.Itoa(int(stat.Gid))); err == nil {
+						attrs["group"] = cty.StringVal(g.Name)
+					} else {
+						attrs["group"] = cty.StringVal(strconv.Itoa(int(stat.Gid)))
+					}
+				}
+			}
 		}
 	}
 
