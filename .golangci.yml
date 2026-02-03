@@ -13,7 +13,3 @@ linters:
       check-blank: false
       # Don't exclude any functions - catch all unchecked errors
       exclude-functions: []
-
-issues:
-  # Don't use default exclusions - we want to catch everything CI catches
-  exclude-use-default: false
