@@ -101,13 +101,19 @@ See the [examples/](examples/) directory for complete configurations.
 
 ## Development
 
-Install the pre-commit hook to run tests and linting before each commit:
+Install dependencies (requires [mise](https://mise.jdx.dev/)):
+
+```bash
+mise install
+```
+
+Install the pre-commit hook to run the same checks as CI before each commit:
 
 ```bash
 cp scripts/pre-commit .git/hooks/pre-commit
 ```
 
-The hook runs `go vet`, `golangci-lint`, and `go test` before allowing commits.
+The hook runs `go mod verify`, `go build`, `golangci-lint`, and `go test -race`.
 
 ## License
 
