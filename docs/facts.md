@@ -13,10 +13,66 @@ System facts provide Ansible-style information about the host system. Facts are 
 | `fact.arch` | CPU architecture | `amd64`, `arm64` |
 | `fact.hostname` | System hostname | `myserver` |
 | `fact.fqdn` | Fully qualified domain name | `myserver.example.com` |
+| `fact.machine_id` | Machine ID from `/etc/machine-id` (Linux only) | `abc123def456...` |
+| `fact.cpu.physical` | Number of physical CPU cores | `4` |
+| `fact.cpu.cores` | Total CPU cores (logical/hyperthreaded) | `8` |
 | `fact.user.name` | Current username | `admin` |
 | `fact.user.home` | Home directory | `/home/admin` |
 | `fact.user.uid` | User ID | `1000` |
 | `fact.user.gid` | Group ID | `1000` |
+| `fact.env.<VAR>` | Environment variable value | `fact.env.HOME` → `/home/admin` |
+
+## Machine ID
+
+The `fact.machine_id` fact provides the system's unique machine identifier, read from `/etc/machine-id` on Linux systems. This is useful for uniquely identifying a machine in configuration or generating machine-specific settings.
+
+```hcl
+resource "file" "machine_info" {
+  path    = "/etc/myapp/machine.conf"
+  content = <<-EOF
+    machine_id = ${fact.machine_id}
+  EOF
+}
+```
+
+On non-Linux systems, this value will be an empty string.
+
+## CPU Information
+
+CPU facts provide information about the system's processor configuration:
+
+- `fact.cpu.physical` - Number of physical CPU cores
+- `fact.cpu.cores` - Total logical CPU cores (includes hyperthreading)
+
+```hcl
+# Configure worker threads based on CPU cores
+resource "file" "app_config" {
+  path    = "/etc/myapp/workers.conf"
+  content = <<-EOF
+    # Use half the logical cores for workers
+    workers = ${fact.cpu.cores / 2}
+  EOF
+}
+```
+
+## Environment Variables
+
+All environment variables are available via `fact.env.<VARIABLE_NAME>`:
+
+```hcl
+# Conditional execution based on environment
+resource "file" "dev_config" {
+  path    = "/etc/myapp/config.conf"
+  content = "mode = development"
+  when    = fact.env.APP_ENV == "development"
+}
+
+# Use environment variables in paths
+resource "directory" "workspace" {
+  path = "${fact.env.HOME}/workspace"
+  mode = "0755"
+}
+```
 
 ## OS Family Detection
 
