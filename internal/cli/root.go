@@ -55,6 +55,7 @@ exec commands, and hostname configuration.`,
 	rootCmd.AddCommand(NewPlanCmd())
 	rootCmd.AddCommand(NewApplyCmd())
 	rootCmd.AddCommand(NewValidateCmd())
+	rootCmd.AddCommand(NewFactsCmd())
 	rootCmd.AddCommand(NewVersionCmd())
 
 	return rootCmd

@@ -46,6 +46,24 @@ func TestGather(t *testing.T) {
 	if facts.User.GID == "" {
 		t.Error("User.GID is empty")
 	}
+
+	// CPU facts should have sensible values
+	if facts.CPU.Physical < 1 {
+		t.Errorf("CPU.Physical = %d, want >= 1", facts.CPU.Physical)
+	}
+	if facts.CPU.Cores < 1 {
+		t.Errorf("CPU.Cores = %d, want >= 1", facts.CPU.Cores)
+	}
+
+	// Environment variables should not be empty
+	if len(facts.Env) == 0 {
+		t.Error("Env map is empty")
+	}
+
+	// PATH should typically be set
+	if _, ok := facts.Env["PATH"]; !ok {
+		t.Error("PATH not found in Env map")
+	}
 }
 
 func TestToCtyValue(t *testing.T) {
@@ -56,14 +74,23 @@ func TestToCtyValue(t *testing.T) {
 			Distribution:        "Ubuntu",
 			DistributionVersion: "22.04",
 		},
-		Arch:     "amd64",
-		Hostname: "testhost",
-		FQDN:     "testhost.example.com",
+		Arch:      "amd64",
+		Hostname:  "testhost",
+		FQDN:      "testhost.example.com",
+		MachineID: "abc123def456",
+		CPU: CPUFacts{
+			Physical: 4,
+			Cores:    8,
+		},
 		User: UserFacts{
 			Name: "testuser",
 			Home: "/home/testuser",
 			UID:  "1000",
 			GID:  "1000",
+		},
+		Env: map[string]string{
+			"HOME": "/home/testuser",
+			"PATH": "/usr/bin:/bin",
 		},
 	}
 
@@ -78,6 +105,7 @@ func TestToCtyValue(t *testing.T) {
 	assertCtyString(t, val, "arch", "amd64")
 	assertCtyString(t, val, "hostname", "testhost")
 	assertCtyString(t, val, "fqdn", "testhost.example.com")
+	assertCtyString(t, val, "machine_id", "abc123def456")
 
 	// Check nested OS object
 	osVal := val.GetAttr("os")
@@ -89,6 +117,14 @@ func TestToCtyValue(t *testing.T) {
 	assertCtyString(t, osVal, "distribution", "Ubuntu")
 	assertCtyString(t, osVal, "distribution_version", "22.04")
 
+	// Check nested CPU object
+	cpuVal := val.GetAttr("cpu")
+	if !cpuVal.Type().IsObjectType() {
+		t.Fatalf("cpu is %s, want object", cpuVal.Type().FriendlyName())
+	}
+	assertCtyNumber(t, cpuVal, "physical", 4)
+	assertCtyNumber(t, cpuVal, "cores", 8)
+
 	// Check nested user object
 	userVal := val.GetAttr("user")
 	if !userVal.Type().IsObjectType() {
@@ -98,6 +134,14 @@ func TestToCtyValue(t *testing.T) {
 	assertCtyString(t, userVal, "home", "/home/testuser")
 	assertCtyString(t, userVal, "uid", "1000")
 	assertCtyString(t, userVal, "gid", "1000")
+
+	// Check nested env object
+	envVal := val.GetAttr("env")
+	if !envVal.Type().IsObjectType() {
+		t.Fatalf("env is %s, want object", envVal.Type().FriendlyName())
+	}
+	assertCtyString(t, envVal, "HOME", "/home/testuser")
+	assertCtyString(t, envVal, "PATH", "/usr/bin:/bin")
 }
 
 func assertCtyString(t *testing.T, obj cty.Value, attr, expected string) {
@@ -109,6 +153,20 @@ func assertCtyString(t *testing.T, obj cty.Value, attr, expected string) {
 	}
 	if val.AsString() != expected {
 		t.Errorf("%s = %q, want %q", attr, val.AsString(), expected)
+	}
+}
+
+func assertCtyNumber(t *testing.T, obj cty.Value, attr string, expected int64) {
+	t.Helper()
+	val := obj.GetAttr(attr)
+	if val.Type() != cty.Number {
+		t.Errorf("%s is %s, want number", attr, val.Type().FriendlyName())
+		return
+	}
+	bf := val.AsBigFloat()
+	got, _ := bf.Int64()
+	if got != expected {
+		t.Errorf("%s = %d, want %d", attr, got, expected)
 	}
 }
 
@@ -225,6 +283,59 @@ func TestGatherUserFacts(t *testing.T) {
 	// UID should be non-empty
 	if facts.UID == "" {
 		t.Error("User.UID is empty")
+	}
+}
+
+func TestGatherCPUFacts(t *testing.T) {
+	facts := gatherCPUFacts()
+
+	// Physical CPUs should be at least 1
+	if facts.Physical < 1 {
+		t.Errorf("CPU.Physical = %d, want >= 1", facts.Physical)
+	}
+
+	// Cores should be at least 1
+	if facts.Cores < 1 {
+		t.Errorf("CPU.Cores = %d, want >= 1", facts.Cores)
+	}
+
+	// Cores should be >= Physical (logical cores include hyperthreading)
+	if facts.Cores < facts.Physical {
+		t.Errorf("CPU.Cores (%d) < CPU.Physical (%d), cores should be >= physical", facts.Cores, facts.Physical)
+	}
+}
+
+func TestGatherEnvFacts(t *testing.T) {
+	facts := gatherEnvFacts()
+
+	// Should not be empty
+	if len(facts) == 0 {
+		t.Error("Env map is empty")
+	}
+
+	// PATH should typically be set
+	if _, ok := facts["PATH"]; !ok {
+		t.Error("PATH not found in Env map")
+	}
+
+	// Test that HOME is captured (should be set in test environment)
+	if home, ok := facts["HOME"]; ok {
+		if home == "" {
+			t.Error("HOME is empty string")
+		}
+	}
+}
+
+func TestGetMachineID(t *testing.T) {
+	// This test just verifies the function runs without panicking
+	// The actual value depends on the system
+	machineID := getMachineID()
+
+	// On Linux, machine ID should be a 32-character hex string
+	if runtime.GOOS == "linux" && machineID != "" {
+		if len(machineID) != 32 {
+			t.Logf("Machine ID length = %d (expected 32 for standard format)", len(machineID))
+		}
 	}
 }
 

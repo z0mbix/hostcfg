@@ -7,17 +7,21 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"strings"
 
 	"github.com/zclconf/go-cty/cty"
 )
 
 // Facts contains all gathered system facts
 type Facts struct {
-	OS       OSFacts
-	Arch     string
-	Hostname string
-	FQDN     string
-	User     UserFacts
+	OS        OSFacts
+	Arch      string
+	Hostname  string
+	FQDN      string
+	User      UserFacts
+	MachineID string
+	CPU       CPUFacts
+	Env       map[string]string
 }
 
 // Gather collects all system facts
@@ -46,13 +50,36 @@ func Gather() (*Facts, error) {
 		}
 	}
 
+	machineID := getMachineID()
+	cpuFacts := gatherCPUFacts()
+	envFacts := gatherEnvFacts()
+
 	return &Facts{
-		OS:       osFacts,
-		Arch:     runtime.GOARCH,
-		Hostname: hostname,
-		FQDN:     fqdn,
-		User:     userFacts,
+		OS:        osFacts,
+		Arch:      runtime.GOARCH,
+		Hostname:  hostname,
+		FQDN:      fqdn,
+		User:      userFacts,
+		MachineID: machineID,
+		CPU:       cpuFacts,
+		Env:       envFacts,
 	}, nil
+}
+
+// getMachineID reads the machine ID from /etc/machine-id (Linux)
+// or returns an empty string on unsupported platforms
+func getMachineID() string {
+	// Primary location on most Linux systems
+	if data, err := os.ReadFile("/etc/machine-id"); err == nil {
+		return strings.TrimSpace(string(data))
+	}
+
+	// Fallback location (older systems or systems using dbus)
+	if data, err := os.ReadFile("/var/lib/dbus/machine-id"); err == nil {
+		return strings.TrimSpace(string(data))
+	}
+
+	return ""
 }
 
 // lookupFQDN attempts to get the fully qualified domain name
@@ -80,6 +107,12 @@ func lookupFQDN(hostname string) string {
 
 // ToCtyValue converts Facts to a cty.Value for use in HCL expressions
 func (f *Facts) ToCtyValue() cty.Value {
+	// Convert environment variables map to cty
+	envMap := make(map[string]cty.Value)
+	for k, v := range f.Env {
+		envMap[k] = cty.StringVal(v)
+	}
+
 	return cty.ObjectVal(map[string]cty.Value{
 		"os": cty.ObjectVal(map[string]cty.Value{
 			"name":                 cty.StringVal(f.OS.Name),
@@ -87,14 +120,20 @@ func (f *Facts) ToCtyValue() cty.Value {
 			"distribution":         cty.StringVal(f.OS.Distribution),
 			"distribution_version": cty.StringVal(f.OS.DistributionVersion),
 		}),
-		"arch":     cty.StringVal(f.Arch),
-		"hostname": cty.StringVal(f.Hostname),
-		"fqdn":     cty.StringVal(f.FQDN),
+		"arch":       cty.StringVal(f.Arch),
+		"hostname":   cty.StringVal(f.Hostname),
+		"fqdn":       cty.StringVal(f.FQDN),
+		"machine_id": cty.StringVal(f.MachineID),
+		"cpu": cty.ObjectVal(map[string]cty.Value{
+			"physical": cty.NumberIntVal(int64(f.CPU.Physical)),
+			"cores":    cty.NumberIntVal(int64(f.CPU.Cores)),
+		}),
 		"user": cty.ObjectVal(map[string]cty.Value{
 			"name": cty.StringVal(f.User.Name),
 			"home": cty.StringVal(f.User.Home),
 			"uid":  cty.StringVal(f.User.UID),
 			"gid":  cty.StringVal(f.User.GID),
 		}),
+		"env": cty.ObjectVal(envMap),
 	})
 }
