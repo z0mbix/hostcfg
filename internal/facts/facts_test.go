@@ -252,4 +252,56 @@ func TestGatherOSFacts(t *testing.T) {
 			t.Error("OS.Family is empty on Linux")
 		}
 	}
+
+	// On macOS, we should have distribution and version
+	if runtime.GOOS == "darwin" {
+		if facts.Distribution != "macOS" {
+			t.Errorf("OS.Distribution = %q, want %q", facts.Distribution, "macOS")
+		}
+		if facts.DistributionVersion == "" {
+			t.Error("OS.DistributionVersion is empty on macOS")
+		}
+		if facts.Family != "darwin" {
+			t.Errorf("OS.Family = %q, want %q", facts.Family, "darwin")
+		}
+	}
+
+	// On FreeBSD, we should have distribution and version
+	if runtime.GOOS == "freebsd" {
+		if facts.Distribution != "FreeBSD" {
+			t.Errorf("OS.Distribution = %q, want %q", facts.Distribution, "FreeBSD")
+		}
+		if facts.DistributionVersion == "" {
+			t.Error("OS.DistributionVersion is empty on FreeBSD")
+		}
+		if facts.Family != "freebsd" {
+			t.Errorf("OS.Family = %q, want %q", facts.Family, "freebsd")
+		}
+	}
+
+	// On OpenBSD, we should have distribution and version
+	if runtime.GOOS == "openbsd" {
+		if facts.Distribution != "OpenBSD" {
+			t.Errorf("OS.Distribution = %q, want %q", facts.Distribution, "OpenBSD")
+		}
+		if facts.DistributionVersion == "" {
+			t.Error("OS.DistributionVersion is empty on OpenBSD")
+		}
+		if facts.Family != "openbsd" {
+			t.Errorf("OS.Family = %q, want %q", facts.Family, "openbsd")
+		}
+	}
+
+	// On NetBSD, we should have distribution and version
+	if runtime.GOOS == "netbsd" {
+		if facts.Distribution != "NetBSD" {
+			t.Errorf("OS.Distribution = %q, want %q", facts.Distribution, "NetBSD")
+		}
+		if facts.DistributionVersion == "" {
+			t.Error("OS.DistributionVersion is empty on NetBSD")
+		}
+		if facts.Family != "netbsd" {
+			t.Errorf("OS.Family = %q, want %q", facts.Family, "netbsd")
+		}
+	}
 }

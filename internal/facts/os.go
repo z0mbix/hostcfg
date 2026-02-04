@@ -3,6 +3,7 @@ package facts
 import (
 	"bufio"
 	"os"
+	"os/exec"
 	"runtime"
 	"strings"
 )
@@ -41,8 +42,27 @@ func gatherOSFacts() (OSFacts, error) {
 	case "darwin":
 		facts.Family = "darwin"
 		facts.Distribution = "macOS"
-		// Could use sw_vers to get version, but keeping it simple
-		facts.DistributionVersion = ""
+		facts.DistributionVersion = getMacOSVersion()
+
+	case "freebsd":
+		facts.Family = "freebsd"
+		facts.Distribution = "FreeBSD"
+		facts.DistributionVersion = getUnameVersion()
+
+	case "openbsd":
+		facts.Family = "openbsd"
+		facts.Distribution = "OpenBSD"
+		facts.DistributionVersion = getUnameVersion()
+
+	case "netbsd":
+		facts.Family = "netbsd"
+		facts.Distribution = "NetBSD"
+		facts.DistributionVersion = getUnameVersion()
+
+	case "dragonfly":
+		facts.Family = "dragonfly"
+		facts.Distribution = "DragonFly BSD"
+		facts.DistributionVersion = getUnameVersion()
 
 	default:
 		facts.Family = runtime.GOOS
@@ -125,4 +145,22 @@ func detectLinuxFamily(osRelease map[string]string) string {
 	}
 
 	return "unknown"
+}
+
+// getMacOSVersion gets the macOS version using sw_vers
+func getMacOSVersion() string {
+	out, err := exec.Command("sw_vers", "--productVersion").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// getUnameVersion gets the OS version using uname -r (for BSDs)
+func getUnameVersion() string {
+	out, err := exec.Command("uname", "-r").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
