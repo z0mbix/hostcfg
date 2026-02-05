@@ -264,8 +264,9 @@ func (e *Executor) expandForEachResources(resources []*config.ResourceBlock) ([]
 			expanded := &config.ResourceBlock{
 				Type:        block.Type,
 				Name:        expandedName,
-				DependsOn:   block.DependsOn, // Will be expanded in second pass
-				Body:        block.Body,      // Same body, will be decoded with each context
+				Description: block.Description, // Preserve description
+				DependsOn:   block.DependsOn,   // Will be expanded in second pass
+				Body:        block.Body,        // Same body, will be decoded with each context
 				RoleBaseDir: block.RoleBaseDir,
 				ForEachKey:  key,
 				When:        block.When, // Preserve when expression

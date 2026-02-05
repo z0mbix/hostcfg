@@ -32,11 +32,11 @@ type Variable struct {
 type ResourceBlock struct {
 	Type        string         `hcl:"type,label"`
 	Name        string         `hcl:"name,label"`
-	Description string         `hcl:"description,optional"`
+	Description hcl.Expression `hcl:"description,optional"`
 	DependsOn   []string       `hcl:"depends_on,optional"`
-	ForEach   hcl.Expression `hcl:"for_each,optional"`
-	When      hcl.Expression `hcl:"when,optional"`
-	Body      hcl.Body       `hcl:",remain"`
+	ForEach     hcl.Expression `hcl:"for_each,optional"`
+	When        hcl.Expression `hcl:"when,optional"`
+	Body        hcl.Body       `hcl:",remain"`
 
 	// RoleBaseDir is the base directory for role resources (for template path resolution).
 	// This is set by the role loader and is empty for non-role resources.
