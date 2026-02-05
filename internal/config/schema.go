@@ -30,9 +30,10 @@ type Variable struct {
 
 // ResourceBlock represents a resource definition in HCL
 type ResourceBlock struct {
-	Type      string         `hcl:"type,label"`
-	Name      string         `hcl:"name,label"`
-	DependsOn []string       `hcl:"depends_on,optional"`
+	Type        string         `hcl:"type,label"`
+	Name        string         `hcl:"name,label"`
+	Description string         `hcl:"description,optional"`
+	DependsOn   []string       `hcl:"depends_on,optional"`
 	ForEach   hcl.Expression `hcl:"for_each,optional"`
 	When      hcl.Expression `hcl:"when,optional"`
 	Body      hcl.Body       `hcl:",remain"`

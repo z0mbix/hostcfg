@@ -25,7 +25,7 @@ func TestLinkResource_Type(t *testing.T) {
 		target = "/tmp/target"
 	`)
 
-	r, err := NewLinkResource("test", body, nil, nil)
+	r, err := NewLinkResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestLinkResource_Name(t *testing.T) {
 		target = "/tmp/target"
 	`)
 
-	r, err := NewLinkResource("mylink", body, nil, nil)
+	r, err := NewLinkResource("mylink", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestLinkResource_Validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := parseLinkHCL(t, tt.hcl)
-			r, err := NewLinkResource("test", body, nil, nil)
+			r, err := NewLinkResource("test", body, nil, "", nil)
 			if err != nil {
 				if !tt.wantErr {
 					t.Fatalf("failed to create resource: %v", err)
@@ -116,7 +116,7 @@ func TestLinkResource_Dependencies(t *testing.T) {
 	`)
 
 	deps := []string{"directory.target"}
-	r, err := NewLinkResource("test", body, deps, nil)
+	r, err := NewLinkResource("test", body, deps, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestLinkResource_Read_NonExistent(t *testing.T) {
 		target = "/tmp/target"
 	`)
 
-	r, err := NewLinkResource("test", body, nil, nil)
+	r, err := NewLinkResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestLinkResource_Read_ExistingSymlink(t *testing.T) {
 		target = "`+targetPath+`"
 	`)
 
-	r, err := NewLinkResource("test", body, nil, nil)
+	r, err := NewLinkResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestLinkResource_Read_NotASymlink(t *testing.T) {
 		target = "/tmp/target"
 	`)
 
-	r, err := NewLinkResource("test", body, nil, nil)
+	r, err := NewLinkResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -240,7 +240,7 @@ func TestLinkResource_Diff_Create(t *testing.T) {
 		target = "`+targetPath+`"
 	`)
 
-	r, err := NewLinkResource("test", body, nil, nil)
+	r, err := NewLinkResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -275,7 +275,7 @@ func TestLinkResource_Diff_NoChange(t *testing.T) {
 		target = "`+targetPath+`"
 	`)
 
-	r, err := NewLinkResource("test", body, nil, nil)
+	r, err := NewLinkResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -317,7 +317,7 @@ func TestLinkResource_Diff_TargetChange(t *testing.T) {
 		target = "`+newTarget+`"
 	`)
 
-	r, err := NewLinkResource("test", body, nil, nil)
+	r, err := NewLinkResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -372,7 +372,7 @@ func TestLinkResource_Diff_Delete(t *testing.T) {
 		ensure = "absent"
 	`)
 
-	r, err := NewLinkResource("test", body, nil, nil)
+	r, err := NewLinkResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -406,7 +406,7 @@ func TestLinkResource_Diff_NotSymlinkWithoutForce(t *testing.T) {
 		target = "/tmp/target"
 	`)
 
-	r, err := NewLinkResource("test", body, nil, nil)
+	r, err := NewLinkResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -437,7 +437,7 @@ func TestLinkResource_Diff_NotSymlinkWithForce(t *testing.T) {
 		force  = true
 	`)
 
-	r, err := NewLinkResource("test", body, nil, nil)
+	r, err := NewLinkResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -472,7 +472,7 @@ func TestLinkResource_Apply_Create(t *testing.T) {
 		target = "`+targetPath+`"
 	`)
 
-	r, err := NewLinkResource("test", body, nil, nil)
+	r, err := NewLinkResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -519,7 +519,7 @@ func TestLinkResource_Apply_Update(t *testing.T) {
 		target = "`+newTarget+`"
 	`)
 
-	r, err := NewLinkResource("test", body, nil, nil)
+	r, err := NewLinkResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -567,7 +567,7 @@ func TestLinkResource_Apply_Delete(t *testing.T) {
 		ensure = "absent"
 	`)
 
-	r, err := NewLinkResource("test", body, nil, nil)
+	r, err := NewLinkResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -612,7 +612,7 @@ func TestLinkResource_Apply_ForceReplaceFile(t *testing.T) {
 		force  = true
 	`)
 
-	r, err := NewLinkResource("test", body, nil, nil)
+	r, err := NewLinkResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -656,7 +656,7 @@ func TestLinkResource_Apply_DryRun(t *testing.T) {
 		target = "`+targetPath+`"
 	`)
 
-	r, err := NewLinkResource("test", body, nil, nil)
+	r, err := NewLinkResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -692,7 +692,7 @@ func TestLinkResource_Idempotent(t *testing.T) {
 		target = "`+targetPath+`"
 	`)
 
-	r, err := NewLinkResource("test", body, nil, nil)
+	r, err := NewLinkResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}

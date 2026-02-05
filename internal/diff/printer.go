@@ -53,6 +53,11 @@ func (p *Printer) PrintPlan(r resource.Resource, plan *resource.Plan) {
 		p.printHeader("-", resource.ID(r), color.FgRed)
 	}
 
+	// Print description if present
+	if desc := r.Description(); desc != "" {
+		_, _ = fmt.Fprintf(p.out, "  # %s\n", desc)
+	}
+
 	// Print each change
 	for _, change := range plan.Changes {
 		p.printChange(plan.Action, change)
@@ -75,6 +80,12 @@ func (p *Printer) printSkipped(r resource.Resource, plan *resource.Plan) {
 	} else {
 		_, _ = fmt.Fprintf(p.out, "# %s (skipped: %s)\n", resource.ID(r), skipReason)
 	}
+
+	// Print description if present
+	if desc := r.Description(); desc != "" {
+		_, _ = fmt.Fprintf(p.out, "  # %s\n", desc)
+	}
+
 	_, _ = fmt.Fprintln(p.out)
 }
 

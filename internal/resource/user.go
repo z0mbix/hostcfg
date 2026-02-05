@@ -19,13 +19,14 @@ func init() {
 
 // UserResource manages system users
 type UserResource struct {
-	name      string
-	config    config.UserResourceConfig
-	dependsOn []string
+	name        string
+	description string
+	config      config.UserResourceConfig
+	dependsOn   []string
 }
 
 // NewUserResource creates a new user resource from HCL
-func NewUserResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.EvalContext) (Resource, error) {
+func NewUserResource(name string, body hcl.Body, dependsOn []string, description string, ctx *hcl.EvalContext) (Resource, error) {
 	var cfg config.UserResourceConfig
 	diags := gohcl.DecodeBody(body, ctx, &cfg)
 	if diags.HasErrors() {
@@ -33,14 +34,16 @@ func NewUserResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.Ev
 	}
 
 	return &UserResource{
-		name:      name,
-		config:    cfg,
-		dependsOn: dependsOn,
+		name:        name,
+		description: description,
+		config:      cfg,
+		dependsOn:   dependsOn,
 	}, nil
 }
 
-func (r *UserResource) Type() string { return "user" }
-func (r *UserResource) Name() string { return r.name }
+func (r *UserResource) Type() string        { return "user" }
+func (r *UserResource) Name() string        { return r.name }
+func (r *UserResource) Description() string { return r.description }
 
 func (r *UserResource) Validate() error {
 	if r.config.Name == "" {

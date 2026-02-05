@@ -24,7 +24,7 @@ func TestStatResource_Type(t *testing.T) {
 		path = "/tmp/test"
 	`)
 
-	r, err := NewStatResource("test", body, nil, nil)
+	r, err := NewStatResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -39,7 +39,7 @@ func TestStatResource_Name(t *testing.T) {
 		path = "/tmp/test"
 	`)
 
-	r, err := NewStatResource("mystat", body, nil, nil)
+	r, err := NewStatResource("mystat", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestStatResource_Validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := parseStatHCL(t, tt.hcl)
-			r, err := NewStatResource("test", body, nil, nil)
+			r, err := NewStatResource("test", body, nil, "", nil)
 			if err != nil {
 				if !tt.wantErr {
 					t.Fatalf("failed to create resource: %v", err)
@@ -102,7 +102,7 @@ func TestStatResource_Dependencies(t *testing.T) {
 	`)
 
 	deps := []string{"file.config"}
-	r, err := NewStatResource("test", body, deps, nil)
+	r, err := NewStatResource("test", body, deps, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestStatResource_Read_NonExistent(t *testing.T) {
 		path = "`+path+`"
 	`)
 
-	r, err := NewStatResource("test", body, nil, nil)
+	r, err := NewStatResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestStatResource_Read_RegularFile(t *testing.T) {
 		path = "`+filePath+`"
 	`)
 
-	r, err := NewStatResource("test", body, nil, nil)
+	r, err := NewStatResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -203,7 +203,7 @@ func TestStatResource_Read_Directory(t *testing.T) {
 		path = "`+dirPath+`"
 	`)
 
-	r, err := NewStatResource("test", body, nil, nil)
+	r, err := NewStatResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestStatResource_Read_Symlink_FollowTrue(t *testing.T) {
 		follow = true
 	`)
 
-	r, err := NewStatResource("test", body, nil, nil)
+	r, err := NewStatResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -298,7 +298,7 @@ func TestStatResource_Read_Symlink_FollowFalse(t *testing.T) {
 		follow = false
 	`)
 
-	r, err := NewStatResource("test", body, nil, nil)
+	r, err := NewStatResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -339,7 +339,7 @@ func TestStatResource_Read_BrokenSymlink(t *testing.T) {
 		follow = true
 	`)
 
-	r, err := NewStatResource("test", body, nil, nil)
+	r, err := NewStatResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -361,7 +361,7 @@ func TestStatResource_Read_BrokenSymlink(t *testing.T) {
 		follow = false
 	`)
 
-	r2, err := NewStatResource("test2", body2, nil, nil)
+	r2, err := NewStatResource("test2", body2, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -392,7 +392,7 @@ func TestStatResource_Read_OwnerGroup(t *testing.T) {
 		path = "`+filePath+`"
 	`)
 
-	r, err := NewStatResource("test", body, nil, nil)
+	r, err := NewStatResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -430,7 +430,7 @@ func TestStatResource_Read_Timestamps(t *testing.T) {
 		path = "`+filePath+`"
 	`)
 
-	r, err := NewStatResource("test", body, nil, nil)
+	r, err := NewStatResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -462,7 +462,7 @@ func TestStatResource_Diff_AlwaysNoop(t *testing.T) {
 		path = "`+filePath+`"
 	`)
 
-	r, err := NewStatResource("test", body, nil, nil)
+	r, err := NewStatResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -499,7 +499,7 @@ func TestStatResource_Apply_Noop(t *testing.T) {
 		path = "`+filePath+`"
 	`)
 
-	r, err := NewStatResource("test", body, nil, nil)
+	r, err := NewStatResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}

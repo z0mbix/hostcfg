@@ -25,6 +25,7 @@ func newMockResource(typ, name string, deps []string) *mockResource {
 
 func (m *mockResource) Type() string                                              { return m.typ }
 func (m *mockResource) Name() string                                              { return m.name }
+func (m *mockResource) Description() string                                       { return "" }
 func (m *mockResource) Read(ctx context.Context) (*resource.State, error)         { return nil, nil }
 func (m *mockResource) Diff(ctx context.Context, s *resource.State) (*resource.Plan, error) {
 	return nil, nil

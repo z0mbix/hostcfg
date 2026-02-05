@@ -19,13 +19,14 @@ func init() {
 
 // GroupResource manages system groups
 type GroupResource struct {
-	name      string
-	config    config.GroupResourceConfig
-	dependsOn []string
+	name        string
+	description string
+	config      config.GroupResourceConfig
+	dependsOn   []string
 }
 
 // NewGroupResource creates a new group resource from HCL
-func NewGroupResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.EvalContext) (Resource, error) {
+func NewGroupResource(name string, body hcl.Body, dependsOn []string, description string, ctx *hcl.EvalContext) (Resource, error) {
 	var cfg config.GroupResourceConfig
 	diags := gohcl.DecodeBody(body, ctx, &cfg)
 	if diags.HasErrors() {
@@ -33,14 +34,16 @@ func NewGroupResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.E
 	}
 
 	return &GroupResource{
-		name:      name,
-		config:    cfg,
-		dependsOn: dependsOn,
+		name:        name,
+		description: description,
+		config:      cfg,
+		dependsOn:   dependsOn,
 	}, nil
 }
 
-func (r *GroupResource) Type() string { return "group" }
-func (r *GroupResource) Name() string { return r.name }
+func (r *GroupResource) Type() string        { return "group" }
+func (r *GroupResource) Name() string        { return r.name }
+func (r *GroupResource) Description() string { return r.description }
 
 func (r *GroupResource) Validate() error {
 	if r.config.Name == "" {

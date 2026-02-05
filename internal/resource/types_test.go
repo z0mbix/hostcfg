@@ -68,6 +68,7 @@ type mockResourceForID struct {
 
 func (m *mockResourceForID) Type() string                                              { return m.typ }
 func (m *mockResourceForID) Name() string                                              { return m.name }
+func (m *mockResourceForID) Description() string                                       { return "" }
 func (m *mockResourceForID) Read(ctx context.Context) (*State, error)                  { return nil, nil }
 func (m *mockResourceForID) Diff(ctx context.Context, s *State) (*Plan, error)         { return nil, nil }
 func (m *mockResourceForID) Apply(ctx context.Context, p *Plan, apply bool) error      { return nil }

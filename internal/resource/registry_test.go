@@ -17,13 +17,14 @@ type testResource struct {
 
 func (r *testResource) Type() string                                              { return r.typ }
 func (r *testResource) Name() string                                              { return r.name }
+func (r *testResource) Description() string                                       { return "" }
 func (r *testResource) Read(ctx context.Context) (*State, error)                  { return nil, nil }
 func (r *testResource) Diff(ctx context.Context, s *State) (*Plan, error)         { return nil, nil }
 func (r *testResource) Apply(ctx context.Context, p *Plan, apply bool) error      { return nil }
 func (r *testResource) Validate() error                                           { return nil }
 func (r *testResource) Dependencies() []string                                    { return r.deps }
 
-func testFactory(name string, body hcl.Body, dependsOn []string, ctx *hcl.EvalContext) (Resource, error) {
+func testFactory(name string, body hcl.Body, dependsOn []string, description string, ctx *hcl.EvalContext) (Resource, error) {
 	return &testResource{
 		name: name,
 		typ:  "test",

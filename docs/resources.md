@@ -1,5 +1,48 @@
 # Resources
 
+## Common Attributes
+
+All resources support the following optional attributes:
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `description` | string | Human-readable description displayed in plan/apply output |
+| `depends_on` | list | Explicit dependencies on other resources |
+
+### Description
+
+The `description` attribute adds a human-readable comment that appears in plan and apply output, making it easier to understand what each resource does:
+
+```hcl
+resource "directory" "config" {
+  description = "Create the application's config directory"
+  path        = "/home/user/.config/myapp"
+  mode        = "0755"
+}
+```
+
+Output:
+```
++ directory.config
+  # Create the application's config directory
+    + path = "/home/user/.config/myapp"
+    + mode = "0755"
+```
+
+### Dependencies
+
+Use `depends_on` to explicitly declare that a resource depends on another:
+
+```hcl
+resource "file" "config" {
+  path       = "/etc/myapp/config.conf"
+  content    = "key = value"
+  depends_on = ["directory.config"]
+}
+```
+
+Note: Dependencies are automatically inferred when you reference another resource's attributes (e.g., `${directory.config.path}`), so explicit `depends_on` is only needed when there's an implicit dependency that can't be detected.
+
 ## file
 
 Manages files with content, ownership, and permissions.

@@ -29,7 +29,7 @@ func TestDownloadResource_Type(t *testing.T) {
 		dest = "/tmp/file"
 	`)
 
-	r, err := NewDownloadResource("test", body, nil, nil)
+	r, err := NewDownloadResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestDownloadResource_Name(t *testing.T) {
 		dest = "/tmp/file"
 	`)
 
-	r, err := NewDownloadResource("mydownload", body, nil, nil)
+	r, err := NewDownloadResource("mydownload", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestDownloadResource_Validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := parseDownloadHCL(t, tt.hcl)
-			r, err := NewDownloadResource("test", body, nil, nil)
+			r, err := NewDownloadResource("test", body, nil, "", nil)
 			if err != nil {
 				if !tt.wantErr {
 					t.Fatalf("failed to create resource: %v", err)
@@ -138,7 +138,7 @@ func TestDownloadResource_Dependencies(t *testing.T) {
 	`)
 
 	deps := []string{"directory.downloads"}
-	r, err := NewDownloadResource("test", body, deps, nil)
+	r, err := NewDownloadResource("test", body, deps, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestDownloadResource_Read_NonExistent(t *testing.T) {
 		dest = "`+destPath+`"
 	`)
 
-	r, err := NewDownloadResource("test", body, nil, nil)
+	r, err := NewDownloadResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestDownloadResource_Read_ExistingFile(t *testing.T) {
 		checksum = "`+expectedChecksum+`"
 	`)
 
-	r, err := NewDownloadResource("test", body, nil, nil)
+	r, err := NewDownloadResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -226,7 +226,7 @@ func TestDownloadResource_Diff_Create(t *testing.T) {
 		dest = "`+destPath+`"
 	`)
 
-	r, err := NewDownloadResource("test", body, nil, nil)
+	r, err := NewDownloadResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -263,7 +263,7 @@ func TestDownloadResource_Diff_NoChange(t *testing.T) {
 		mode     = "0644"
 	`)
 
-	r, err := NewDownloadResource("test", body, nil, nil)
+	r, err := NewDownloadResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -304,7 +304,7 @@ func TestDownloadResource_Diff_ChecksumMismatch(t *testing.T) {
 		checksum = "`+expectedChecksum+`"
 	`)
 
-	r, err := NewDownloadResource("test", body, nil, nil)
+	r, err := NewDownloadResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -350,7 +350,7 @@ func TestDownloadResource_Diff_Force(t *testing.T) {
 		force = true
 	`)
 
-	r, err := NewDownloadResource("test", body, nil, nil)
+	r, err := NewDownloadResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -386,7 +386,7 @@ func TestDownloadResource_Diff_ModeChange(t *testing.T) {
 		mode = "0755"
 	`)
 
-	r, err := NewDownloadResource("test", body, nil, nil)
+	r, err := NewDownloadResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -445,7 +445,7 @@ func TestDownloadResource_Apply_Download(t *testing.T) {
 		mode     = "0755"
 	`)
 
-	r, err := NewDownloadResource("test", body, nil, nil)
+	r, err := NewDownloadResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -498,7 +498,7 @@ func TestDownloadResource_Apply_ChecksumMismatch(t *testing.T) {
 		checksum = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 	`)
 
-	r, err := NewDownloadResource("test", body, nil, nil)
+	r, err := NewDownloadResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -536,7 +536,7 @@ func TestDownloadResource_Apply_HTTPError(t *testing.T) {
 		dest = "`+destPath+`"
 	`)
 
-	r, err := NewDownloadResource("test", body, nil, nil)
+	r, err := NewDownloadResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -570,7 +570,7 @@ func TestDownloadResource_Apply_DryRun(t *testing.T) {
 		dest = "`+destPath+`"
 	`)
 
-	r, err := NewDownloadResource("test", body, nil, nil)
+	r, err := NewDownloadResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -607,7 +607,7 @@ func TestDownloadResource_Apply_UpdateModeOnly(t *testing.T) {
 		mode = "0755"
 	`)
 
-	r, err := NewDownloadResource("test", body, nil, nil)
+	r, err := NewDownloadResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -663,7 +663,7 @@ func TestDownloadResource_Apply_CreatesParentDirectory(t *testing.T) {
 		dest = "`+destPath+`"
 	`)
 
-	r, err := NewDownloadResource("test", body, nil, nil)
+	r, err := NewDownloadResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -708,7 +708,7 @@ func TestDownloadResource_Idempotent(t *testing.T) {
 		checksum = "`+checksum+`"
 	`)
 
-	r, err := NewDownloadResource("test", body, nil, nil)
+	r, err := NewDownloadResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}

@@ -19,13 +19,14 @@ func init() {
 
 // StatResource is a read-only resource that gathers file information
 type StatResource struct {
-	name      string
-	config    config.StatResourceConfig
-	dependsOn []string
+	name        string
+	description string
+	config      config.StatResourceConfig
+	dependsOn   []string
 }
 
 // NewStatResource creates a new stat resource from HCL
-func NewStatResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.EvalContext) (Resource, error) {
+func NewStatResource(name string, body hcl.Body, dependsOn []string, description string, ctx *hcl.EvalContext) (Resource, error) {
 	var cfg config.StatResourceConfig
 	diags := gohcl.DecodeBody(body, ctx, &cfg)
 	if diags.HasErrors() {
@@ -33,14 +34,16 @@ func NewStatResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.Ev
 	}
 
 	return &StatResource{
-		name:      name,
-		config:    cfg,
-		dependsOn: dependsOn,
+		name:        name,
+		description: description,
+		config:      cfg,
+		dependsOn:   dependsOn,
 	}, nil
 }
 
-func (r *StatResource) Type() string { return "stat" }
-func (r *StatResource) Name() string { return r.name }
+func (r *StatResource) Type() string        { return "stat" }
+func (r *StatResource) Name() string        { return r.name }
+func (r *StatResource) Description() string { return r.description }
 
 func (r *StatResource) Validate() error {
 	if r.config.Path == "" {

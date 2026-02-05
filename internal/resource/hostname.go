@@ -18,13 +18,14 @@ func init() {
 
 // HostnameResource manages the system hostname
 type HostnameResource struct {
-	name      string
-	config    config.HostnameResourceConfig
-	dependsOn []string
+	name        string
+	description string
+	config      config.HostnameResourceConfig
+	dependsOn   []string
 }
 
 // NewHostnameResource creates a new hostname resource from HCL
-func NewHostnameResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.EvalContext) (Resource, error) {
+func NewHostnameResource(name string, body hcl.Body, dependsOn []string, description string, ctx *hcl.EvalContext) (Resource, error) {
 	var cfg config.HostnameResourceConfig
 	diags := gohcl.DecodeBody(body, ctx, &cfg)
 	if diags.HasErrors() {
@@ -32,14 +33,16 @@ func NewHostnameResource(name string, body hcl.Body, dependsOn []string, ctx *hc
 	}
 
 	return &HostnameResource{
-		name:      name,
-		config:    cfg,
-		dependsOn: dependsOn,
+		name:        name,
+		description: description,
+		config:      cfg,
+		dependsOn:   dependsOn,
 	}, nil
 }
 
-func (r *HostnameResource) Type() string { return "hostname" }
-func (r *HostnameResource) Name() string { return r.name }
+func (r *HostnameResource) Type() string        { return "hostname" }
+func (r *HostnameResource) Name() string        { return r.name }
+func (r *HostnameResource) Description() string { return r.description }
 
 func (r *HostnameResource) Validate() error {
 	if r.config.Name == "" {

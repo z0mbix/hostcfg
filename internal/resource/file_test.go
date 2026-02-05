@@ -25,7 +25,7 @@ func TestFileResource_Type(t *testing.T) {
 		content = "hello"
 	`)
 
-	r, err := NewFileResource("test", body, nil, nil)
+	r, err := NewFileResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestFileResource_Name(t *testing.T) {
 		content = "hello"
 	`)
 
-	r, err := NewFileResource("myname", body, nil, nil)
+	r, err := NewFileResource("myname", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestFileResource_Validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := parseFileHCL(t, tt.hcl)
-			r, err := NewFileResource("test", body, nil, nil)
+			r, err := NewFileResource("test", body, nil, "", nil)
 			if err != nil {
 				if !tt.wantErr {
 					t.Fatalf("failed to create resource: %v", err)
@@ -132,7 +132,7 @@ func TestFileResource_Dependencies(t *testing.T) {
 	`)
 
 	deps := []string{"directory.parent", "package.prereq"}
-	r, err := NewFileResource("test", body, deps, nil)
+	r, err := NewFileResource("test", body, deps, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestFileResource_Read_NonExistent(t *testing.T) {
 		content = "hello"
 	`)
 
-	r, err := NewFileResource("test", body, nil, nil)
+	r, err := NewFileResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -183,7 +183,7 @@ func TestFileResource_Read_Existing(t *testing.T) {
 		content = "test content"
 	`)
 
-	r, err := NewFileResource("test", body, nil, nil)
+	r, err := NewFileResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -217,7 +217,7 @@ func TestFileResource_Diff_Create(t *testing.T) {
 		content = "new content"
 	`)
 
-	r, err := NewFileResource("test", body, nil, nil)
+	r, err := NewFileResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -253,7 +253,7 @@ func TestFileResource_Diff_NoChange(t *testing.T) {
 		content = "unchanged content"
 	`)
 
-	r, err := NewFileResource("test", body, nil, nil)
+	r, err := NewFileResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -291,7 +291,7 @@ func TestFileResource_Diff_ContentChange(t *testing.T) {
 		content = "new content"
 	`)
 
-	r, err := NewFileResource("test", body, nil, nil)
+	r, err := NewFileResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -343,7 +343,7 @@ func TestFileResource_Diff_Delete(t *testing.T) {
 		ensure = "absent"
 	`)
 
-	r, err := NewFileResource("test", body, nil, nil)
+	r, err := NewFileResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -374,7 +374,7 @@ func TestFileResource_Apply_Create(t *testing.T) {
 		content = "`+content+`"
 	`)
 
-	r, err := NewFileResource("test", body, nil, nil)
+	r, err := NewFileResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -414,7 +414,7 @@ func TestFileResource_Apply_Update(t *testing.T) {
 		content = "updated"
 	`)
 
-	r, err := NewFileResource("test", body, nil, nil)
+	r, err := NewFileResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -458,7 +458,7 @@ func TestFileResource_Apply_Delete(t *testing.T) {
 		ensure = "absent"
 	`)
 
-	r, err := NewFileResource("test", body, nil, nil)
+	r, err := NewFileResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -493,7 +493,7 @@ func TestFileResource_Apply_DryRun(t *testing.T) {
 		content = "content"
 	`)
 
-	r, err := NewFileResource("test", body, nil, nil)
+	r, err := NewFileResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -526,7 +526,7 @@ func TestFileResource_Apply_Mode(t *testing.T) {
 		mode    = "0755"
 	`)
 
-	r, err := NewFileResource("test", body, nil, nil)
+	r, err := NewFileResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -562,7 +562,7 @@ func TestFileResource_Idempotent(t *testing.T) {
 		content = "`+content+`"
 	`)
 
-	r, err := NewFileResource("test", body, nil, nil)
+	r, err := NewFileResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
