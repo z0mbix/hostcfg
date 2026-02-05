@@ -57,7 +57,13 @@ resource "file" "app_config" {
 
 ## Environment Variables
 
-All environment variables are available via `fact.env.<VARIABLE_NAME>`:
+All environment variables are available via `fact.env.<VARIABLE_NAME>`.
+
+To view facts without environment variables (which can be noisy), use `--no-env`:
+
+```bash
+hostcfg facts --no-env
+```
 
 ```hcl
 # Conditional execution based on environment
