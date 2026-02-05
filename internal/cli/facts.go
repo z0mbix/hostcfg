@@ -12,6 +12,7 @@ import (
 )
 
 var factsFormat string
+var noEnv bool
 
 // NewFactsCmd creates the facts command
 func NewFactsCmd() *cobra.Command {
@@ -28,6 +29,8 @@ CPU information, machine ID, and environment variables.`,
 
 	cmd.Flags().StringVar(&factsFormat, "format", "hcl",
 		"Output format: hcl, json, or yaml")
+	cmd.Flags().BoolVar(&noEnv, "no-env", false,
+		"Exclude environment variables from output")
 
 	return cmd
 }
@@ -37,6 +40,10 @@ func runFacts(cmd *cobra.Command, args []string) error {
 	f, err := facts.Gather()
 	if err != nil {
 		return fmt.Errorf("failed to gather facts: %w", err)
+	}
+
+	if noEnv {
+		f.Env = nil
 	}
 
 	// Output in requested format
@@ -61,7 +68,7 @@ type factsOutput struct {
 	MachineID string            `json:"machine_id" yaml:"machine_id"`
 	CPU       cpuOutput         `json:"cpu" yaml:"cpu"`
 	User      userOutput        `json:"user" yaml:"user"`
-	Env       map[string]string `json:"env" yaml:"env"`
+	Env       map[string]string `json:"env,omitempty" yaml:"env,omitempty"`
 }
 
 type osOutput struct {
@@ -154,20 +161,24 @@ func outputHCL(f *facts.Facts) error {
 	sb.WriteString(fmt.Sprintf("  home = %q\n", f.User.Home))
 	sb.WriteString(fmt.Sprintf("  uid  = %q\n", f.User.UID))
 	sb.WriteString(fmt.Sprintf("  gid  = %q\n", f.User.GID))
-	sb.WriteString("}\n\n")
-
-	// Sort env keys for consistent output
-	keys := make([]string, 0, len(f.Env))
-	for k := range f.Env {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	sb.WriteString("env = {\n")
-	for _, k := range keys {
-		sb.WriteString(fmt.Sprintf("  %q = %q\n", k, f.Env[k]))
-	}
 	sb.WriteString("}\n")
+
+	if len(f.Env) > 0 {
+		sb.WriteString("\n")
+
+		// Sort env keys for consistent output
+		keys := make([]string, 0, len(f.Env))
+		for k := range f.Env {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		sb.WriteString("env = {\n")
+		for _, k := range keys {
+			sb.WriteString(fmt.Sprintf("  %q = %q\n", k, f.Env[k]))
+		}
+		sb.WriteString("}\n")
+	}
 
 	fmt.Print(sb.String())
 	return nil
