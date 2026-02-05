@@ -14,20 +14,22 @@ import (
 
 // Parser handles parsing HCL configuration files
 type Parser struct {
-	parser      *hclparse.Parser
-	variables   map[string]cty.Value
-	resources   map[string]map[string]cty.Value // type -> name -> attributes
-	baseDir     string                          // directory containing HCL files
-	roleBaseDir string                          // current role's directory (empty if not in role)
-	facts       cty.Value                       // system facts for use in expressions
+	parser        *hclparse.Parser
+	variables     map[string]cty.Value
+	variableTypes map[string]cty.Type            // variable type constraints
+	resources     map[string]map[string]cty.Value // type -> name -> attributes
+	baseDir       string                          // directory containing HCL files
+	roleBaseDir   string                          // current role's directory (empty if not in role)
+	facts         cty.Value                       // system facts for use in expressions
 }
 
 // NewParser creates a new HCL parser
 func NewParser() *Parser {
 	return &Parser{
-		parser:    hclparse.NewParser(),
-		variables: make(map[string]cty.Value),
-		resources: make(map[string]map[string]cty.Value),
+		parser:        hclparse.NewParser(),
+		variables:     make(map[string]cty.Value),
+		variableTypes: make(map[string]cty.Type),
+		resources:     make(map[string]map[string]cty.Value),
 	}
 }
 
@@ -39,6 +41,35 @@ func (p *Parser) SetVariable(name string, value string) {
 // SetVariableValue sets a variable with a cty.Value directly
 func (p *Parser) SetVariableValue(name string, value cty.Value) {
 	p.variables[name] = value
+}
+
+// SetVariableType sets a type constraint for a variable
+func (p *Parser) SetVariableType(name string, ty cty.Type) {
+	p.variableTypes[name] = ty
+}
+
+// GetVariableTypes returns a copy of the variable type constraints map
+func (p *Parser) GetVariableTypes() map[string]cty.Type {
+	result := make(map[string]cty.Type, len(p.variableTypes))
+	for k, v := range p.variableTypes {
+		result[k] = v
+	}
+	return result
+}
+
+// ValidateAndSetVariable validates a value against its type constraint and sets it.
+// If no type constraint exists, the value is set as-is.
+func (p *Parser) ValidateAndSetVariable(name string, value cty.Value) hcl.Diagnostics {
+	if constraint, hasType := p.variableTypes[name]; hasType {
+		validated, diags := ValidateValue(value, constraint, name, nil)
+		if diags.HasErrors() {
+			return diags
+		}
+		p.variables[name] = validated
+		return nil
+	}
+	p.variables[name] = value
+	return nil
 }
 
 // GetBaseDir returns the base directory for the parser
@@ -192,20 +223,82 @@ func (p *Parser) decodeConfig(body hcl.Body) (*Config, hcl.Diagnostics) {
 		return nil, diags
 	}
 
-	// Process variable defaults
+	// Parse type constraints for all variables
 	for _, v := range config.Variables {
-		if v.Default != nil {
-			val, valDiags := v.Default.Value(ctx)
-			if !valDiags.HasErrors() {
-				// Only set if not already overridden
-				if _, exists := p.variables[v.Name]; !exists {
-					p.variables[v.Name] = val
+		if v.TypeExpr != nil {
+			ty, typeDiags := ParseTypeConstraint(v.TypeExpr)
+			diags = append(diags, typeDiags...)
+			if !typeDiags.HasErrors() {
+				p.variableTypes[v.Name] = ty
+			}
+		}
+	}
+
+	// Return early if type parsing failed
+	if diags.HasErrors() {
+		return nil, diags
+	}
+
+	// Validate and coerce externally-set variables (from CLI/var files) against type constraints
+	for name, constraint := range p.variableTypes {
+		if existingVal, exists := p.variables[name]; exists {
+			// For string values (from CLI -e flag), attempt type coercion
+			if existingVal.Type() == cty.String && constraint != cty.String && constraint != cty.DynamicPseudoType {
+				strVal := existingVal.AsString()
+				coerced, err := CoerceStringValue(strVal, constraint)
+				if err != nil {
+					diags = append(diags, &hcl.Diagnostic{
+						Severity: hcl.DiagError,
+						Summary:  fmt.Sprintf("Invalid value for variable %q", name),
+						Detail:   fmt.Sprintf("Cannot convert %q to %s: %s", strVal, constraint.FriendlyName(), err.Error()),
+					})
+					continue
+				}
+				p.variables[name] = coerced
+			} else {
+				// Validate non-string values against type constraint
+				validated, validateDiags := ValidateValue(existingVal, constraint, name, nil)
+				diags = append(diags, validateDiags...)
+				if !validateDiags.HasErrors() {
+					p.variables[name] = validated
 				}
 			}
 		}
 	}
 
-	return &config, nil
+	// Return early if validation failed
+	if diags.HasErrors() {
+		return nil, diags
+	}
+
+	// Process variable defaults with type validation
+	for _, v := range config.Variables {
+		if v.Default != nil {
+			val, valDiags := v.Default.Value(ctx)
+			diags = append(diags, valDiags...)
+			if valDiags.HasErrors() {
+				continue
+			}
+
+			// Validate against type constraint if one exists
+			if constraint, hasType := p.variableTypes[v.Name]; hasType {
+				declRange := v.TypeExpr.Range()
+				validated, validateDiags := ValidateValue(val, constraint, v.Name, &declRange)
+				diags = append(diags, validateDiags...)
+				if validateDiags.HasErrors() {
+					continue
+				}
+				val = validated
+			}
+
+			// Only set if not already overridden
+			if _, exists := p.variables[v.Name]; !exists {
+				p.variables[v.Name] = val
+			}
+		}
+	}
+
+	return &config, diags
 }
 
 // buildEvalContext creates the evaluation context for HCL expressions

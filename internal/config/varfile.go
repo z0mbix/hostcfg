@@ -13,7 +13,8 @@ import (
 
 // VarFileLoader handles loading variable files
 type VarFileLoader struct {
-	parser *hclparse.Parser
+	parser          *hclparse.Parser
+	typeConstraints map[string]cty.Type // optional type constraints for validation
 }
 
 // NewVarFileLoader creates a new variable file loader
@@ -21,6 +22,12 @@ func NewVarFileLoader() *VarFileLoader {
 	return &VarFileLoader{
 		parser: hclparse.NewParser(),
 	}
+}
+
+// SetTypeConstraints sets the type constraints for variable validation.
+// When set, loaded values will be validated against these constraints.
+func (l *VarFileLoader) SetTypeConstraints(constraints map[string]cty.Type) {
+	l.typeConstraints = constraints
 }
 
 // LoadVarFile loads variables from a single .vars.hcl file
@@ -51,9 +58,24 @@ func (l *VarFileLoader) LoadVarFile(path string) (map[string]cty.Value, hcl.Diag
 	for name, attr := range attrs {
 		val, valDiags := attr.Expr.Value(nil)
 		diags = append(diags, valDiags...)
-		if !valDiags.HasErrors() {
-			result[name] = val
+		if valDiags.HasErrors() {
+			continue
 		}
+
+		// Validate against type constraint if one exists
+		if l.typeConstraints != nil {
+			if constraint, hasType := l.typeConstraints[name]; hasType {
+				attrRange := attr.Range
+				validated, validateDiags := ValidateValue(val, constraint, name, &attrRange)
+				diags = append(diags, validateDiags...)
+				if validateDiags.HasErrors() {
+					continue
+				}
+				val = validated
+			}
+		}
+
+		result[name] = val
 	}
 
 	return result, diags

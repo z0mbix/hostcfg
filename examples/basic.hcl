@@ -1,11 +1,24 @@
-# Basic example demonstrating variables and file resources
+# Basic example demonstrating typed variables and file resources
 
 variable "app_name" {
-  default = "myapp"
+  type        = string
+  default     = "myapp"
+  description = "Name of the application"
 }
 
 variable "config_dir" {
+  type    = string
   default = "/tmp/hostcfg-example"
+}
+
+variable "debug" {
+  type    = bool
+  default = false
+}
+
+variable "port" {
+  type    = number
+  default = 8080
 }
 
 # Create the configuration directory
@@ -21,7 +34,8 @@ resource "file" "app_config" {
     {
       "name": "${var.app_name}",
       "version": "1.0.0",
-      "debug": false
+      "debug": ${var.debug},
+      "port": ${var.port}
     }
   EOF
   mode = "0644"

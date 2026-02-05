@@ -18,6 +18,7 @@ roles/
 
 ```hcl
 variable "redis_port" {
+  type    = number
   default = 6379
 }
 
@@ -96,11 +97,18 @@ resource "file" "app_config" {
 **`roles/redis/variables.hcl`:**
 ```hcl
 variable "port" {
+  type    = number
   default = 6379
 }
 
 variable "maxmemory" {
+  type    = string
   default = "256mb"
+}
+
+variable "databases" {
+  type    = number
+  default = 16
 }
 ```
 

@@ -1,15 +1,33 @@
-# Complete example demonstrating all resource types
+# Complete example demonstrating all resource types with typed variables
 
 variable "hostname" {
+  type    = string
   default = "webserver01"
 }
 
 variable "app_user" {
+  type    = string
   default = "appuser"
 }
 
 variable "app_dir" {
+  type    = string
   default = "/opt/myapp"
+}
+
+variable "app_port" {
+  type    = number
+  default = 8080
+}
+
+variable "workers" {
+  type    = number
+  default = 4
+}
+
+variable "debug" {
+  type    = bool
+  default = false
 }
 
 # Set the hostname
@@ -73,9 +91,10 @@ resource "file" "app_config" {
     data_dir = ${var.app_dir}/data
 
     [server]
-    port = 8080
-    workers = 4
+    port = ${var.app_port}
+    workers = ${var.workers}
     timeout = 30
+    debug = ${var.debug}
 
     [database]
     host = localhost
@@ -133,7 +152,7 @@ resource "file" "nginx_proxy" {
   path    = "/etc/nginx/sites-available/myapp"
   content = <<-EOF
     upstream myapp {
-        server 127.0.0.1:8080;
+        server 127.0.0.1:${var.app_port};
     }
 
     server {
@@ -181,7 +200,7 @@ resource "cron" "log_rotation" {
 
 # Health check cron (every 5 minutes)
 resource "cron" "health_check" {
-  command  = "curl -s http://localhost:8080/health || systemctl restart myapp"
+  command  = "curl -s http://localhost:${var.app_port}/health || systemctl restart myapp"
   schedule = "*/5 * * * *"
   user     = "root"
 

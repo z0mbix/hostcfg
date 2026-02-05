@@ -55,12 +55,13 @@ func (l *Loader) LoadRole(block *config.RoleBlock) (*Role, error) {
 	}
 
 	role := &Role{
-		Name:      block.Name,
-		Source:    block.Source,
-		BaseDir:   absRoleDir,
-		Defaults:  make(map[string]cty.Value),
-		Variables: make(map[string]cty.Value),
-		DependsOn: block.DependsOn,
+		Name:            block.Name,
+		Source:          block.Source,
+		BaseDir:         absRoleDir,
+		Defaults:        make(map[string]cty.Value),
+		Variables:       make(map[string]cty.Value),
+		TypeConstraints: make(map[string]cty.Type),
+		DependsOn:       block.DependsOn,
 	}
 
 	// 2. Load defaults from defaults/variables.hcl
@@ -78,7 +79,18 @@ func (l *Loader) LoadRole(block *config.RoleBlock) (*Role, error) {
 
 		if val.Type().IsObjectType() || val.Type().IsMapType() {
 			for k, v := range val.AsValueMap() {
-				role.Variables[k] = v
+				// Validate against type constraint if one exists
+				if constraint, hasType := role.TypeConstraints[k]; hasType {
+					varRange := block.Variables.Range()
+					validated, validateDiags := config.ValidateValue(v, constraint, k, &varRange)
+					if validateDiags.HasErrors() {
+						return nil, fmt.Errorf("role %s: invalid value for variable %q: %s",
+							block.Name, k, validateDiags.Error())
+					}
+					role.Variables[k] = validated
+				} else {
+					role.Variables[k] = v
+				}
 			}
 		}
 	}
@@ -148,12 +160,30 @@ func (l *Loader) loadDefaults(role *Role) error {
 		return fmt.Errorf("failed to decode defaults: %s", diags.Error())
 	}
 
-	// Extract default values
+	// Extract type constraints and default values
 	for _, v := range defaults.Variables {
+		// Parse type constraint if specified
+		if v.TypeExpr != nil {
+			ty, typeDiags := config.ParseTypeConstraint(v.TypeExpr)
+			if !typeDiags.HasErrors() {
+				role.TypeConstraints[v.Name] = ty
+			}
+		}
+
+		// Extract default value
 		if v.Default != nil {
 			val, valDiags := v.Default.Value(nil)
 			if !valDiags.HasErrors() {
-				role.Defaults[v.Name] = val
+				// Validate default against type constraint if one exists
+				if constraint, hasType := role.TypeConstraints[v.Name]; hasType {
+					declRange := v.TypeExpr.Range()
+					validated, validateDiags := config.ValidateValue(val, constraint, v.Name, &declRange)
+					if !validateDiags.HasErrors() {
+						role.Defaults[v.Name] = validated
+					}
+				} else {
+					role.Defaults[v.Name] = val
+				}
 			}
 		}
 	}
