@@ -27,9 +27,7 @@ A simple, idempotent configuration management tool using HCL syntax.
 
 ## Installation
 
-```bash
-go install github.com/z0mbix/hostcfg/cmd/hostcfg@latest
-```
+Download the latest binary for your platform from the [releases page](https://github.com/z0mbix/hostcfg/releases).
 
 Or build from source:
 
@@ -44,20 +42,29 @@ go build -o hostcfg ./cmd/hostcfg
 Create `hostcfg.hcl`:
 
 ```hcl
-variable "version" {
-  default = "1.2.3"
+variable "app_name" {
+  default = "myapp"
 }
 
+# Create app config directory in user's home (using a system fact)
 resource "directory" "config" {
-  path = "/etc/myapp"
+  path = "${fact.user.home}/.config/${var.app_name}"
   mode = "0755"
 }
 
-resource "file" "config" {
-  path    = "${directory.config.path}/config.json"
-  content = <<-EOF
-    {"name": "myapp", "version": "${var.version}"}
-  EOF
+# Create multiple config files with for_each
+resource "file" "configs" {
+  for_each = toset(["app", "db", "cache"])
+  path     = "${directory.config.path}/${each.key}.conf"
+  content  = "# ${each.value} configuration\n"
+}
+
+# Only create this file on Linux (using a when condition)
+resource "file" "platform_info" {
+  path    = "${directory.config.path}/platform.txt"
+  content = "Running on ${fact.os.distribution} (${fact.arch})\n"
+  
+  when = [fact.os.name == "linux"]
 }
 ```
 
@@ -66,6 +73,12 @@ Preview and apply:
 ```bash
 hostcfg plan
 hostcfg apply
+```
+
+Get system facts:
+
+```bash
+hostcfg facts
 ```
 
 ## Documentation
