@@ -24,6 +24,17 @@ hostcfg apply --auto-approve     # Skip confirmation (alias for --yes)
 hostcfg apply --dry-run          # Same as plan
 ```
 
+### facts
+
+Display gathered system facts.
+
+```bash
+hostcfg facts                    # Output in HCL format (default)
+hostcfg facts --format json      # Output in JSON format
+hostcfg facts --format yaml      # Output in YAML format
+hostcfg facts --no-env           # Exclude environment variables from output
+```
+
 ### validate
 
 Check HCL syntax and validate resource configurations.
