@@ -5,6 +5,8 @@ import (
 	"sync"
 
 	"github.com/hashicorp/hcl/v2"
+	"github.com/zclconf/go-cty/cty"
+
 	"github.com/z0mbix/hostcfg/internal/config"
 )
 
@@ -31,6 +33,19 @@ func (r *Registry) Register(resourceType string, factory Factory) {
 	r.factories[resourceType] = factory
 }
 
+// evaluateDescription evaluates the description expression and returns the result as a string.
+// Returns empty string if description is nil or evaluation fails.
+func evaluateDescription(desc hcl.Expression, ctx *hcl.EvalContext) string {
+	if desc == nil {
+		return ""
+	}
+	val, diags := desc.Value(ctx)
+	if diags.HasErrors() || val.IsNull() || val.Type() != cty.String {
+		return ""
+	}
+	return val.AsString()
+}
+
 // Create creates a resource from an HCL resource block
 func (r *Registry) Create(block *config.ResourceBlock, ctx *hcl.EvalContext) (Resource, error) {
 	r.mu.RLock()
@@ -41,7 +56,8 @@ func (r *Registry) Create(block *config.ResourceBlock, ctx *hcl.EvalContext) (Re
 		return nil, fmt.Errorf("unknown resource type: %s", block.Type)
 	}
 
-	return factory(block.Name, block.Body, block.DependsOn, block.Description, ctx)
+	description := evaluateDescription(block.Description, ctx)
+	return factory(block.Name, block.Body, block.DependsOn, description, ctx)
 }
 
 // DefaultRegistry is the global default registry
@@ -67,7 +83,8 @@ func (r *Registry) CreateWithDeps(block *config.ResourceBlock, deps []string, ct
 		return nil, fmt.Errorf("unknown resource type: %s", block.Type)
 	}
 
-	return factory(block.Name, block.Body, deps, block.Description, ctx)
+	description := evaluateDescription(block.Description, ctx)
+	return factory(block.Name, block.Body, deps, description, ctx)
 }
 
 // CreateWithDeps creates a resource with explicit dependencies using the default registry
