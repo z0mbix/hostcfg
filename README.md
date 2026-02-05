@@ -6,6 +6,7 @@ A simple, idempotent configuration management tool using HCL syntax.
 
 - **Idempotent** - Resources only change when there's drift from desired state
 - **HCL syntax** - Familiar configuration language with variable interpolation
+- **Typed variables** - Terraform-style type constraints with automatic CLI coercion
 - **Dependency management** - Automatic ordering with cycle detection
 - **Roles** - Reusable configuration modules with variables and templates
 - **System facts** - Ansible-style facts for OS, architecture, and user info
@@ -43,7 +44,13 @@ Create `hostcfg.hcl`:
 
 ```hcl
 variable "app_name" {
+  type    = string
   default = "myapp"
+}
+
+variable "debug" {
+  type    = bool
+  default = false
 }
 
 # Create app config directory in user's home (using a system fact)
@@ -57,14 +64,14 @@ resource "directory" "config" {
 resource "file" "configs" {
   for_each = toset(["app", "db", "cache"])
   path     = "${directory.config.path}/${each.key}.conf"
-  content  = "# ${each.value} configuration\n"
+  content  = "# ${each.value} configuration\ndebug = ${var.debug}\n"
 }
 
 # Only create this file on Linux (using a when condition)
 resource "file" "platform_info" {
   path    = "${directory.config.path}/platform.txt"
   content = "Running on ${fact.os.distribution} (${fact.arch})\n"
-  
+
   when = [fact.os.name == "linux"]
 }
 ```
@@ -74,6 +81,9 @@ Preview and apply:
 ```bash
 hostcfg plan
 hostcfg apply
+
+# Override typed variables from CLI (automatic type coercion)
+hostcfg apply -e debug=true -e app_name=otherapp
 ```
 
 Get system facts:

@@ -23,7 +23,7 @@ type RoleBlock struct {
 // Variable represents a variable definition in HCL
 type Variable struct {
 	Name        string         `hcl:"name,label"`
-	Type        string         `hcl:"type,optional"`
+	TypeExpr    hcl.Expression `hcl:"type,optional"`
 	Default     hcl.Expression `hcl:"default,optional"`
 	Description string         `hcl:"description,optional"`
 }

@@ -7,13 +7,14 @@ import (
 
 // Role represents a loaded role with its configuration
 type Role struct {
-	Name      string                   // Instance name (e.g., "redis")
-	Source    string                   // Path to role directory (as specified)
-	BaseDir   string                   // Absolute path to role directory
-	Defaults  map[string]cty.Value     // From defaults/variables.hcl
-	Variables map[string]cty.Value     // From instantiation
-	Resources []*config.ResourceBlock  // Prefixed resources
-	DependsOn []string                 // Role-level dependencies
+	Name            string                   // Instance name (e.g., "redis")
+	Source          string                   // Path to role directory (as specified)
+	BaseDir         string                   // Absolute path to role directory
+	Defaults        map[string]cty.Value     // From defaults/variables.hcl
+	Variables       map[string]cty.Value     // From instantiation
+	TypeConstraints map[string]cty.Type      // Variable type constraints
+	Resources       []*config.ResourceBlock  // Prefixed resources
+	DependsOn       []string                 // Role-level dependencies
 }
 
 // PrefixResourceName adds role prefix to resource name
@@ -25,6 +26,7 @@ func (r *Role) PrefixResourceName(name string) string {
 // 1. Role defaults (lowest)
 // 2. Instantiation variables
 // 3. CLI variables (highest, if they match role variable names)
+// CLI string values are coerced to declared types.
 func (r *Role) BuildVariableScope(cliVars map[string]cty.Value) map[string]cty.Value {
 	result := make(map[string]cty.Value)
 
@@ -41,6 +43,24 @@ func (r *Role) BuildVariableScope(cliVars map[string]cty.Value) map[string]cty.V
 	// 3. CLI variables (if they match role variable names)
 	for k, v := range cliVars {
 		if _, exists := result[k]; exists {
+			// Coerce CLI string values to declared types
+			if constraint, hasType := r.TypeConstraints[k]; hasType {
+				if v.Type() == cty.String && constraint != cty.String && constraint != cty.DynamicPseudoType {
+					strVal := v.AsString()
+					coerced, err := config.CoerceStringValue(strVal, constraint)
+					if err == nil {
+						result[k] = coerced
+						continue
+					}
+					// If coercion fails, use the original value (will fail validation later)
+				}
+				// Validate non-string values
+				validated, diags := config.ValidateValue(v, constraint, k, nil)
+				if !diags.HasErrors() {
+					result[k] = validated
+					continue
+				}
+			}
 			result[k] = v
 		}
 	}
