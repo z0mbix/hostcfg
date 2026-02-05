@@ -30,13 +30,14 @@ func init() {
 
 // DownloadResource manages file downloads
 type DownloadResource struct {
-	name      string
-	config    config.DownloadResourceConfig
-	dependsOn []string
+	name        string
+	description string
+	config      config.DownloadResourceConfig
+	dependsOn   []string
 }
 
 // NewDownloadResource creates a new download resource from HCL
-func NewDownloadResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.EvalContext) (Resource, error) {
+func NewDownloadResource(name string, body hcl.Body, dependsOn []string, description string, ctx *hcl.EvalContext) (Resource, error) {
 	var cfg config.DownloadResourceConfig
 	diags := gohcl.DecodeBody(body, ctx, &cfg)
 	if diags.HasErrors() {
@@ -44,14 +45,16 @@ func NewDownloadResource(name string, body hcl.Body, dependsOn []string, ctx *hc
 	}
 
 	return &DownloadResource{
-		name:      name,
-		config:    cfg,
-		dependsOn: dependsOn,
+		name:        name,
+		description: description,
+		config:      cfg,
+		dependsOn:   dependsOn,
 	}, nil
 }
 
-func (r *DownloadResource) Type() string { return "download" }
-func (r *DownloadResource) Name() string { return r.name }
+func (r *DownloadResource) Type() string        { return "download" }
+func (r *DownloadResource) Name() string        { return r.name }
+func (r *DownloadResource) Description() string { return r.description }
 
 func (r *DownloadResource) Validate() error {
 	if r.config.URL == "" {

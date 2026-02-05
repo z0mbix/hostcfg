@@ -25,14 +25,15 @@ type PackageManager interface {
 
 // PackageResource manages system packages
 type PackageResource struct {
-	name      string
-	config    config.PackageResourceConfig
-	dependsOn []string
-	pm        PackageManager
+	name        string
+	description string
+	config      config.PackageResourceConfig
+	dependsOn   []string
+	pm          PackageManager
 }
 
 // NewPackageResource creates a new package resource from HCL
-func NewPackageResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.EvalContext) (Resource, error) {
+func NewPackageResource(name string, body hcl.Body, dependsOn []string, description string, ctx *hcl.EvalContext) (Resource, error) {
 	var cfg config.PackageResourceConfig
 	diags := gohcl.DecodeBody(body, ctx, &cfg)
 	if diags.HasErrors() {
@@ -45,15 +46,17 @@ func NewPackageResource(name string, body hcl.Body, dependsOn []string, ctx *hcl
 	}
 
 	return &PackageResource{
-		name:      name,
-		config:    cfg,
-		dependsOn: dependsOn,
-		pm:        pm,
+		name:        name,
+		description: description,
+		config:      cfg,
+		dependsOn:   dependsOn,
+		pm:          pm,
 	}, nil
 }
 
-func (r *PackageResource) Type() string { return "package" }
-func (r *PackageResource) Name() string { return r.name }
+func (r *PackageResource) Type() string        { return "package" }
+func (r *PackageResource) Name() string        { return r.name }
+func (r *PackageResource) Description() string { return r.description }
 
 func (r *PackageResource) Validate() error {
 	if r.config.Name == "" {

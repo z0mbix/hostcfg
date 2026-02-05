@@ -20,13 +20,14 @@ func init() {
 
 // CronResource manages cron job entries
 type CronResource struct {
-	name      string
-	config    config.CronResourceConfig
-	dependsOn []string
+	name        string
+	description string
+	config      config.CronResourceConfig
+	dependsOn   []string
 }
 
 // NewCronResource creates a new cron resource from HCL
-func NewCronResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.EvalContext) (Resource, error) {
+func NewCronResource(name string, body hcl.Body, dependsOn []string, description string, ctx *hcl.EvalContext) (Resource, error) {
 	var cfg config.CronResourceConfig
 	diags := gohcl.DecodeBody(body, ctx, &cfg)
 	if diags.HasErrors() {
@@ -34,14 +35,16 @@ func NewCronResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.Ev
 	}
 
 	return &CronResource{
-		name:      name,
-		config:    cfg,
-		dependsOn: dependsOn,
+		name:        name,
+		description: description,
+		config:      cfg,
+		dependsOn:   dependsOn,
 	}, nil
 }
 
-func (r *CronResource) Type() string { return "cron" }
-func (r *CronResource) Name() string { return r.name }
+func (r *CronResource) Type() string        { return "cron" }
+func (r *CronResource) Name() string        { return r.name }
+func (r *CronResource) Description() string { return r.description }
 
 func (r *CronResource) Validate() error {
 	if r.config.Command == "" {

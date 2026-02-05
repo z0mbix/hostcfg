@@ -74,6 +74,9 @@ type Resource interface {
 	// Name returns the resource name (the identifier from HCL)
 	Name() string
 
+	// Description returns the optional human-readable description
+	Description() string
+
 	// Read retrieves the current state of the resource
 	Read(ctx context.Context) (*State, error)
 

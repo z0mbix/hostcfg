@@ -22,7 +22,7 @@ func parseDirHCL(t *testing.T, src string) hcl.Body {
 func TestDirectoryResource_Type(t *testing.T) {
 	body := parseDirHCL(t, `path = "/tmp/test"`)
 
-	r, err := NewDirectoryResource("test", body, nil, nil)
+	r, err := NewDirectoryResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -35,7 +35,7 @@ func TestDirectoryResource_Type(t *testing.T) {
 func TestDirectoryResource_Name(t *testing.T) {
 	body := parseDirHCL(t, `path = "/tmp/test"`)
 
-	r, err := NewDirectoryResource("mydir", body, nil, nil)
+	r, err := NewDirectoryResource("mydir", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestDirectoryResource_Validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := parseDirHCL(t, tt.hcl)
-			r, err := NewDirectoryResource("test", body, nil, nil)
+			r, err := NewDirectoryResource("test", body, nil, "", nil)
 			if err != nil {
 				if !tt.wantErr {
 					t.Fatalf("failed to create resource: %v", err)
@@ -86,7 +86,7 @@ func TestDirectoryResource_Dependencies(t *testing.T) {
 	body := parseDirHCL(t, `path = "/tmp/test"`)
 
 	deps := []string{"package.prereq"}
-	r, err := NewDirectoryResource("test", body, deps, nil)
+	r, err := NewDirectoryResource("test", body, deps, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestDirectoryResource_Read_NonExistent(t *testing.T) {
 
 	body := parseDirHCL(t, `path = "`+dirPath+`"`)
 
-	r, err := NewDirectoryResource("test", body, nil, nil)
+	r, err := NewDirectoryResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestDirectoryResource_Read_Existing(t *testing.T) {
 
 	body := parseDirHCL(t, `path = "`+dirPath+`"`)
 
-	r, err := NewDirectoryResource("test", body, nil, nil)
+	r, err := NewDirectoryResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -166,7 +166,7 @@ func TestDirectoryResource_Read_NotADirectory(t *testing.T) {
 
 	body := parseDirHCL(t, `path = "`+filePath+`"`)
 
-	r, err := NewDirectoryResource("test", body, nil, nil)
+	r, err := NewDirectoryResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestDirectoryResource_Diff_Create(t *testing.T) {
 
 	body := parseDirHCL(t, `path = "`+dirPath+`"`)
 
-	r, err := NewDirectoryResource("test", body, nil, nil)
+	r, err := NewDirectoryResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -212,7 +212,7 @@ func TestDirectoryResource_Diff_NoChange(t *testing.T) {
 
 	body := parseDirHCL(t, `path = "`+dirPath+`"`)
 
-	r, err := NewDirectoryResource("test", body, nil, nil)
+	r, err := NewDirectoryResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -246,7 +246,7 @@ func TestDirectoryResource_Diff_ModeChange(t *testing.T) {
 		mode = "0700"
 	`)
 
-	r, err := NewDirectoryResource("test", body, nil, nil)
+	r, err := NewDirectoryResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -293,7 +293,7 @@ func TestDirectoryResource_Diff_Delete(t *testing.T) {
 		ensure = "absent"
 	`)
 
-	r, err := NewDirectoryResource("test", body, nil, nil)
+	r, err := NewDirectoryResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -320,7 +320,7 @@ func TestDirectoryResource_Apply_Create(t *testing.T) {
 
 	body := parseDirHCL(t, `path = "`+dirPath+`"`)
 
-	r, err := NewDirectoryResource("test", body, nil, nil)
+	r, err := NewDirectoryResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -354,7 +354,7 @@ func TestDirectoryResource_Apply_CreateRecursive(t *testing.T) {
 		recursive = true
 	`)
 
-	r, err := NewDirectoryResource("test", body, nil, nil)
+	r, err := NewDirectoryResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -392,7 +392,7 @@ func TestDirectoryResource_Apply_Delete(t *testing.T) {
 		ensure = "absent"
 	`)
 
-	r, err := NewDirectoryResource("test", body, nil, nil)
+	r, err := NewDirectoryResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -437,7 +437,7 @@ func TestDirectoryResource_Apply_DeleteRecursive(t *testing.T) {
 		recursive = true
 	`)
 
-	r, err := NewDirectoryResource("test", body, nil, nil)
+	r, err := NewDirectoryResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -471,7 +471,7 @@ func TestDirectoryResource_Apply_Mode(t *testing.T) {
 		mode = "0700"
 	`)
 
-	r, err := NewDirectoryResource("test", body, nil, nil)
+	r, err := NewDirectoryResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -502,7 +502,7 @@ func TestDirectoryResource_Apply_DryRun(t *testing.T) {
 
 	body := parseDirHCL(t, `path = "`+dirPath+`"`)
 
-	r, err := NewDirectoryResource("test", body, nil, nil)
+	r, err := NewDirectoryResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}
@@ -529,7 +529,7 @@ func TestDirectoryResource_Idempotent(t *testing.T) {
 
 	body := parseDirHCL(t, `path = "`+dirPath+`"`)
 
-	r, err := NewDirectoryResource("test", body, nil, nil)
+	r, err := NewDirectoryResource("test", body, nil, "", nil)
 	if err != nil {
 		t.Fatalf("failed to create resource: %v", err)
 	}

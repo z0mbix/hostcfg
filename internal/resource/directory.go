@@ -20,13 +20,14 @@ func init() {
 
 // DirectoryResource manages directory resources
 type DirectoryResource struct {
-	name      string
-	config    config.DirectoryResourceConfig
-	dependsOn []string
+	name        string
+	description string
+	config      config.DirectoryResourceConfig
+	dependsOn   []string
 }
 
 // NewDirectoryResource creates a new directory resource from HCL
-func NewDirectoryResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.EvalContext) (Resource, error) {
+func NewDirectoryResource(name string, body hcl.Body, dependsOn []string, description string, ctx *hcl.EvalContext) (Resource, error) {
 	var cfg config.DirectoryResourceConfig
 	diags := gohcl.DecodeBody(body, ctx, &cfg)
 	if diags.HasErrors() {
@@ -34,14 +35,16 @@ func NewDirectoryResource(name string, body hcl.Body, dependsOn []string, ctx *h
 	}
 
 	return &DirectoryResource{
-		name:      name,
-		config:    cfg,
-		dependsOn: dependsOn,
+		name:        name,
+		description: description,
+		config:      cfg,
+		dependsOn:   dependsOn,
 	}, nil
 }
 
-func (r *DirectoryResource) Type() string { return "directory" }
-func (r *DirectoryResource) Name() string { return r.name }
+func (r *DirectoryResource) Type() string        { return "directory" }
+func (r *DirectoryResource) Name() string        { return r.name }
+func (r *DirectoryResource) Description() string { return r.description }
 
 func (r *DirectoryResource) Validate() error {
 	if r.config.Path == "" {

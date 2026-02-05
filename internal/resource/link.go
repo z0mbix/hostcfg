@@ -17,13 +17,14 @@ func init() {
 
 // LinkResource manages symbolic links
 type LinkResource struct {
-	name      string
-	config    config.LinkResourceConfig
-	dependsOn []string
+	name        string
+	description string
+	config      config.LinkResourceConfig
+	dependsOn   []string
 }
 
 // NewLinkResource creates a new link resource from HCL
-func NewLinkResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.EvalContext) (Resource, error) {
+func NewLinkResource(name string, body hcl.Body, dependsOn []string, description string, ctx *hcl.EvalContext) (Resource, error) {
 	var cfg config.LinkResourceConfig
 	diags := gohcl.DecodeBody(body, ctx, &cfg)
 	if diags.HasErrors() {
@@ -31,14 +32,16 @@ func NewLinkResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.Ev
 	}
 
 	return &LinkResource{
-		name:      name,
-		config:    cfg,
-		dependsOn: dependsOn,
+		name:        name,
+		description: description,
+		config:      cfg,
+		dependsOn:   dependsOn,
 	}, nil
 }
 
-func (r *LinkResource) Type() string { return "link" }
-func (r *LinkResource) Name() string { return r.name }
+func (r *LinkResource) Type() string        { return "link" }
+func (r *LinkResource) Name() string        { return r.name }
+func (r *LinkResource) Description() string { return r.description }
 
 func (r *LinkResource) Validate() error {
 	if r.config.Path == "" {

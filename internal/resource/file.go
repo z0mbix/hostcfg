@@ -21,13 +21,14 @@ func init() {
 
 // FileResource manages file resources
 type FileResource struct {
-	name      string
-	config    config.FileResourceConfig
-	dependsOn []string
+	name        string
+	description string
+	config      config.FileResourceConfig
+	dependsOn   []string
 }
 
 // NewFileResource creates a new file resource from HCL
-func NewFileResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.EvalContext) (Resource, error) {
+func NewFileResource(name string, body hcl.Body, dependsOn []string, description string, ctx *hcl.EvalContext) (Resource, error) {
 	var cfg config.FileResourceConfig
 	diags := gohcl.DecodeBody(body, ctx, &cfg)
 	if diags.HasErrors() {
@@ -35,14 +36,16 @@ func NewFileResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.Ev
 	}
 
 	return &FileResource{
-		name:      name,
-		config:    cfg,
-		dependsOn: dependsOn,
+		name:        name,
+		description: description,
+		config:      cfg,
+		dependsOn:   dependsOn,
 	}, nil
 }
 
-func (r *FileResource) Type() string { return "file" }
-func (r *FileResource) Name() string { return r.name }
+func (r *FileResource) Type() string        { return "file" }
+func (r *FileResource) Name() string        { return r.name }
+func (r *FileResource) Description() string { return r.description }
 
 func (r *FileResource) Validate() error {
 	if r.config.Path == "" {

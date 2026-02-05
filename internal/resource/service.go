@@ -37,14 +37,15 @@ type ServiceManager interface {
 
 // ServiceResource manages system services
 type ServiceResource struct {
-	name      string
-	config    config.ServiceResourceConfig
-	dependsOn []string
-	sm        ServiceManager
+	name        string
+	description string
+	config      config.ServiceResourceConfig
+	dependsOn   []string
+	sm          ServiceManager
 }
 
 // NewServiceResource creates a new service resource from HCL
-func NewServiceResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.EvalContext) (Resource, error) {
+func NewServiceResource(name string, body hcl.Body, dependsOn []string, description string, ctx *hcl.EvalContext) (Resource, error) {
 	var cfg config.ServiceResourceConfig
 	diags := gohcl.DecodeBody(body, ctx, &cfg)
 	if diags.HasErrors() {
@@ -57,15 +58,17 @@ func NewServiceResource(name string, body hcl.Body, dependsOn []string, ctx *hcl
 	}
 
 	return &ServiceResource{
-		name:      name,
-		config:    cfg,
-		dependsOn: dependsOn,
-		sm:        sm,
+		name:        name,
+		description: description,
+		config:      cfg,
+		dependsOn:   dependsOn,
+		sm:          sm,
 	}, nil
 }
 
-func (r *ServiceResource) Type() string { return "service" }
-func (r *ServiceResource) Name() string { return r.name }
+func (r *ServiceResource) Type() string        { return "service" }
+func (r *ServiceResource) Name() string        { return r.name }
+func (r *ServiceResource) Description() string { return r.description }
 
 func (r *ServiceResource) Validate() error {
 	if r.config.Name == "" {

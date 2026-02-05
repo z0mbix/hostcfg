@@ -20,13 +20,14 @@ func init() {
 
 // ExecResource manages exec (command execution) resources
 type ExecResource struct {
-	name      string
-	config    config.ExecResourceConfig
-	dependsOn []string
+	name        string
+	description string
+	config      config.ExecResourceConfig
+	dependsOn   []string
 }
 
 // NewExecResource creates a new exec resource from HCL
-func NewExecResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.EvalContext) (Resource, error) {
+func NewExecResource(name string, body hcl.Body, dependsOn []string, description string, ctx *hcl.EvalContext) (Resource, error) {
 	var cfg config.ExecResourceConfig
 	diags := gohcl.DecodeBody(body, ctx, &cfg)
 	if diags.HasErrors() {
@@ -34,14 +35,16 @@ func NewExecResource(name string, body hcl.Body, dependsOn []string, ctx *hcl.Ev
 	}
 
 	return &ExecResource{
-		name:      name,
-		config:    cfg,
-		dependsOn: dependsOn,
+		name:        name,
+		description: description,
+		config:      cfg,
+		dependsOn:   dependsOn,
 	}, nil
 }
 
-func (r *ExecResource) Type() string { return "exec" }
-func (r *ExecResource) Name() string { return r.name }
+func (r *ExecResource) Type() string        { return "exec" }
+func (r *ExecResource) Name() string        { return r.name }
+func (r *ExecResource) Description() string { return r.description }
 
 func (r *ExecResource) Validate() error {
 	if r.config.Command == "" {

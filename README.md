@@ -48,8 +48,9 @@ variable "app_name" {
 
 # Create app config directory in user's home (using a system fact)
 resource "directory" "config" {
-  path = "${fact.user.home}/.config/${var.app_name}"
-  mode = "0755"
+  description = "Create app config directory"
+  path        = "${fact.user.home}/.config/${var.app_name}"
+  mode        = "0755"
 }
 
 # Create multiple config files with for_each
