@@ -9,6 +9,9 @@
 #   ./scripts/vm-omnios.sh          # Boot from existing disk (or install ISO if no disk)
 #   ./scripts/vm-omnios.sh install  # Force boot from ISO for fresh install
 #
+# After boot, connect to the console via VNC:
+#   open vnc://localhost:5900
+#
 # After install, the VM is accessible via SSH:
 #   ssh -p 2222 root@localhost
 #
@@ -25,6 +28,7 @@ ISO_URL="https://downloads.omnios.org/media/stable/omnios-r151056.iso"
 DISK_SIZE="20G"
 MEMORY="2048"
 SSH_PORT="2222"
+VNC_DISPLAY="0"
 
 mkdir -p "${VM_DIR}"
 
@@ -58,6 +62,5 @@ exec qemu-system-x86_64 \
   "${BOOT_ARGS[@]}" \
   -netdev "user,id=net0,hostfwd=tcp::${SSH_PORT}-:22" \
   -device virtio-net-pci,netdev=net0 \
-  -display none \
-  -serial mon:stdio \
-  -nographic
+  -vnc ":${VNC_DISPLAY}" \
+  -serial mon:stdio

@@ -11,6 +11,9 @@
 # SmartOS boots from ISO every time (live image). Configuration is stored on
 # the zones disk which persists across reboots.
 #
+# After boot, connect to the console via VNC:
+#   open vnc://localhost:5901
+#
 # After boot, the VM is accessible via SSH:
 #   ssh -p 2223 root@localhost
 #
@@ -27,6 +30,7 @@ ISO_URL="https://us-central.manta.mnx.io/Joyent_Dev/public/SmartOS/smartos-lates
 ZONES_DISK_SIZE="20G"
 MEMORY="4096"
 SSH_PORT="2223"
+VNC_DISPLAY="1"
 
 mkdir -p "${VM_DIR}"
 
@@ -53,6 +57,5 @@ exec qemu-system-x86_64 \
   -drive "file=${ZONES_DISK},format=qcow2,if=virtio" \
   -netdev "user,id=net0,hostfwd=tcp::${SSH_PORT}-:22" \
   -device virtio-net-pci,netdev=net0 \
-  -display none \
-  -serial mon:stdio \
-  -nographic
+  -vnc ":${VNC_DISPLAY}" \
+  -serial mon:stdio
