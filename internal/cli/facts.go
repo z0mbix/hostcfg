@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -61,14 +62,15 @@ func runFacts(cmd *cobra.Command, args []string) error {
 
 // factsOutput is a structured representation of facts for serialization
 type factsOutput struct {
-	OS        osOutput          `json:"os" yaml:"os"`
-	Arch      string            `json:"arch" yaml:"arch"`
-	Hostname  string            `json:"hostname" yaml:"hostname"`
-	FQDN      string            `json:"fqdn" yaml:"fqdn"`
-	MachineID string            `json:"machine_id" yaml:"machine_id"`
-	CPU       cpuOutput         `json:"cpu" yaml:"cpu"`
-	User      userOutput        `json:"user" yaml:"user"`
-	Env       map[string]string `json:"env,omitempty" yaml:"env,omitempty"`
+	OS              osOutput          `json:"os" yaml:"os"`
+	Arch            string            `json:"arch" yaml:"arch"`
+	Hostname        string            `json:"hostname" yaml:"hostname"`
+	FQDN            string            `json:"fqdn" yaml:"fqdn"`
+	MachineID       string            `json:"machine_id" yaml:"machine_id"`
+	PackageManagers []string          `json:"package_managers" yaml:"package_managers"`
+	CPU             cpuOutput         `json:"cpu" yaml:"cpu"`
+	User            userOutput        `json:"user" yaml:"user"`
+	Env             map[string]string `json:"env,omitempty" yaml:"env,omitempty"`
 }
 
 type osOutput struct {
@@ -98,10 +100,11 @@ func toFactsOutput(f *facts.Facts) factsOutput {
 			Distribution:        f.OS.Distribution,
 			DistributionVersion: f.OS.DistributionVersion,
 		},
-		Arch:      f.Arch,
-		Hostname:  f.Hostname,
-		FQDN:      f.FQDN,
-		MachineID: f.MachineID,
+		Arch:            f.Arch,
+		Hostname:        f.Hostname,
+		FQDN:            f.FQDN,
+		MachineID:       f.MachineID,
+		PackageManagers: f.PackageManagers,
 		CPU: cpuOutput{
 			Physical: f.CPU.Physical,
 			Cores:    f.CPU.Cores,
@@ -128,11 +131,13 @@ func outputJSON(f *facts.Facts) error {
 
 func outputYAML(f *facts.Facts) error {
 	out := toFactsOutput(f)
-	data, err := yaml.Marshal(out)
-	if err != nil {
+	var buf bytes.Buffer
+	encoder := yaml.NewEncoder(&buf)
+	encoder.SetIndent(2)
+	if err := encoder.Encode(out); err != nil {
 		return fmt.Errorf("failed to marshal YAML: %w", err)
 	}
-	fmt.Print(string(data))
+	fmt.Print(buf.String())
 	return nil
 }
 
@@ -149,7 +154,18 @@ func outputHCL(f *facts.Facts) error {
 	sb.WriteString(fmt.Sprintf("arch       = %q\n", f.Arch))
 	sb.WriteString(fmt.Sprintf("hostname   = %q\n", f.Hostname))
 	sb.WriteString(fmt.Sprintf("fqdn       = %q\n", f.FQDN))
-	sb.WriteString(fmt.Sprintf("machine_id = %q\n\n", f.MachineID))
+	sb.WriteString(fmt.Sprintf("machine_id = %q\n", f.MachineID))
+
+	// Format package_managers as HCL list
+	if len(f.PackageManagers) == 0 {
+		sb.WriteString("package_managers = []\n\n")
+	} else {
+		quoted := make([]string, len(f.PackageManagers))
+		for i, pm := range f.PackageManagers {
+			quoted[i] = fmt.Sprintf("%q", pm)
+		}
+		sb.WriteString(fmt.Sprintf("package_managers = [%s]\n\n", strings.Join(quoted, ", ")))
+	}
 
 	sb.WriteString("cpu = {\n")
 	sb.WriteString(fmt.Sprintf("  physical = %d\n", f.CPU.Physical))

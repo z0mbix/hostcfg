@@ -14,14 +14,15 @@ import (
 
 // Facts contains all gathered system facts
 type Facts struct {
-	OS        OSFacts
-	Arch      string
-	Hostname  string
-	FQDN      string
-	User      UserFacts
-	MachineID string
-	CPU       CPUFacts
-	Env       map[string]string
+	OS              OSFacts
+	Arch            string
+	Hostname        string
+	FQDN            string
+	User            UserFacts
+	MachineID       string
+	CPU             CPUFacts
+	Env             map[string]string
+	PackageManagers []string
 }
 
 // Gather collects all system facts
@@ -53,16 +54,18 @@ func Gather() (*Facts, error) {
 	machineID := getMachineID()
 	cpuFacts := gatherCPUFacts()
 	envFacts := gatherEnvFacts()
+	packageManagerFacts := gatherPackageManagerFacts()
 
 	return &Facts{
-		OS:        osFacts,
-		Arch:      runtime.GOARCH,
-		Hostname:  hostname,
-		FQDN:      fqdn,
-		User:      userFacts,
-		MachineID: machineID,
-		CPU:       cpuFacts,
-		Env:       envFacts,
+		OS:              osFacts,
+		Arch:            runtime.GOARCH,
+		Hostname:        hostname,
+		FQDN:            fqdn,
+		User:            userFacts,
+		MachineID:       machineID,
+		CPU:             cpuFacts,
+		Env:             envFacts,
+		PackageManagers: packageManagerFacts,
 	}, nil
 }
 
@@ -113,6 +116,18 @@ func (f *Facts) ToCtyValue() cty.Value {
 		envMap[k] = cty.StringVal(v)
 	}
 
+	// Convert package managers slice to cty
+	var packageManagersCty cty.Value
+	if len(f.PackageManagers) == 0 {
+		packageManagersCty = cty.ListValEmpty(cty.String)
+	} else {
+		pmVals := make([]cty.Value, len(f.PackageManagers))
+		for i, pm := range f.PackageManagers {
+			pmVals[i] = cty.StringVal(pm)
+		}
+		packageManagersCty = cty.ListVal(pmVals)
+	}
+
 	return cty.ObjectVal(map[string]cty.Value{
 		"os": cty.ObjectVal(map[string]cty.Value{
 			"name":                 cty.StringVal(f.OS.Name),
@@ -120,10 +135,11 @@ func (f *Facts) ToCtyValue() cty.Value {
 			"distribution":         cty.StringVal(f.OS.Distribution),
 			"distribution_version": cty.StringVal(f.OS.DistributionVersion),
 		}),
-		"arch":       cty.StringVal(f.Arch),
-		"hostname":   cty.StringVal(f.Hostname),
-		"fqdn":       cty.StringVal(f.FQDN),
-		"machine_id": cty.StringVal(f.MachineID),
+		"arch":             cty.StringVal(f.Arch),
+		"hostname":         cty.StringVal(f.Hostname),
+		"fqdn":             cty.StringVal(f.FQDN),
+		"machine_id":       cty.StringVal(f.MachineID),
+		"package_managers": packageManagersCty,
 		"cpu": cty.ObjectVal(map[string]cty.Value{
 			"physical": cty.NumberIntVal(int64(f.CPU.Physical)),
 			"cores":    cty.NumberIntVal(int64(f.CPU.Cores)),

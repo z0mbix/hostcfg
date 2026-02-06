@@ -19,7 +19,7 @@ resource "directory" "config" {
 resource "file" "configs" {
   description = "Create config files for ${each.key}"
   for_each = toset(["app", "db", "cache"])
-  path     = "${directory.config.path}/${each.key}.conf"
+    path     = "${directory.config.path}/${each.key}.conf"
   content  = "# ${each.value} configuration\ndebug = ${var.debug}\n"
 }
 

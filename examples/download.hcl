@@ -17,12 +17,12 @@ resource "download" "config" {
   owner   = "root"
   group   = "root"
   mode    = "0644"
-  timeout = 60  # Custom timeout for slow connections
+  timeout = 60 # Custom timeout for slow connections
 }
 
 # Download with force re-download
 resource "download" "always_fresh" {
   url   = "https://example.com/latest/version.txt"
   dest  = "/var/cache/version.txt"
-  force = true  # Always re-download
+  force = true # Always re-download
 }
