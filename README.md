@@ -25,6 +25,8 @@ A simple, idempotent configuration management tool using HCL syntax.
 | FreeBSD | pkg | rc.d |
 | OpenBSD | pkg_add | rcctl |
 | NetBSD | pkgin, pkg_add | rc.d |
+| SmartOS | pkgin | SMF |
+| OmniOS | pkg | SMF |
 
 ## Installation
 
