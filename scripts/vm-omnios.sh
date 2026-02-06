@@ -21,7 +21,7 @@ set -euo pipefail
 VM_DIR="${HOME}/.local/share/hostcfg-vms/omnios"
 DISK="${VM_DIR}/disk.qcow2"
 ISO="${VM_DIR}/omnios.iso"
-ISO_URL="https://downloads.omnios.org/media/omnios-r151056.iso"
+ISO_URL="https://downloads.omnios.org/media/stable/omnios-r151056.iso"
 DISK_SIZE="20G"
 MEMORY="2048"
 SSH_PORT="2222"

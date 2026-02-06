@@ -21,7 +21,7 @@ set -euo pipefail
 VM_DIR="${HOME}/.local/share/hostcfg-vms/openindiana"
 DISK="${VM_DIR}/disk.qcow2"
 ISO="${VM_DIR}/openindiana.iso"
-ISO_URL="https://dlc.openindiana.org/isos/hipster/OpenIndiana-Hipster-202510-text-x86_64.iso"
+ISO_URL="https://dlc.openindiana.org/isos/hipster/20251026/OI-hipster-text-20251026.iso"
 DISK_SIZE="20G"
 MEMORY="2048"
 SSH_PORT="2224"
