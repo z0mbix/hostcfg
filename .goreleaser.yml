@@ -26,16 +26,19 @@ builds:
       - freebsd
       - openbsd
       - netbsd
+      - illumos
     goarch:
       - amd64
       - arm64
     ignore:
-      # Only build amd64 for BSDs
+      # Only build amd64 for BSDs and illumos
       - goos: freebsd
         goarch: arm64
       - goos: openbsd
         goarch: arm64
       - goos: netbsd
+        goarch: arm64
+      - goos: illumos
         goarch: arm64
 
 archives:
@@ -104,6 +107,8 @@ release:
     | FreeBSD | pkg | rc.d |
     | OpenBSD | pkg_add | rcctl |
     | NetBSD | pkgin, pkg_add | rc.d |
+    | SmartOS | pkgin | SMF |
+    | OmniOS | pkg | SMF |
 
   footer: |
     ---

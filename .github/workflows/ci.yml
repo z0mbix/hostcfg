@@ -87,6 +87,9 @@ jobs:
           # NetBSD
           - goos: netbsd
             goarch: amd64
+          # illumos (SmartOS, OmniOS)
+          - goos: illumos
+            goarch: amd64
     steps:
       - name: Checkout
         uses: actions/checkout@v4

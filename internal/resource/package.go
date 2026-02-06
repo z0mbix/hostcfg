@@ -197,6 +197,14 @@ func detectPackageManager() (PackageManager, error) {
 		if _, err := exec.LookPath("pkg_add"); err == nil {
 			return &NetBSDPackageManager{}, nil
 		}
+	case "illumos":
+		// Prefer pkgin if available (SmartOS), fall back to IPS pkg (OmniOS)
+		if _, err := exec.LookPath("pkgin"); err == nil {
+			return &PkginPackageManager{}, nil
+		}
+		if _, err := exec.LookPath("pkg"); err == nil {
+			return &IPSPackageManager{}, nil
+		}
 	}
 
 	// Linux package managers
