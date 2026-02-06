@@ -81,6 +81,7 @@ resource "directory" "app_data" {
 # Create application configuration
 resource "file" "app_config" {
   path    = "${var.app_dir}/config/app.conf"
+  mode    = "0640"
   content = <<-EOF
     # Application Configuration
     # Managed by hostcfg - do not edit manually
@@ -101,7 +102,6 @@ resource "file" "app_config" {
     port = 5432
     name = myapp_db
   EOF
-  mode = "0640"
 
   depends_on = ["directory.app_config"]
 }
@@ -109,13 +109,13 @@ resource "file" "app_config" {
 # Create environment file
 resource "file" "env_file" {
   path    = "${var.app_dir}/.env"
+  mode    = "0600"
   content = <<-EOF
     APP_ENV=production
     APP_DEBUG=false
     APP_LOG_LEVEL=info
     HOSTNAME=${var.hostname}
   EOF
-  mode = "0600"
 
   depends_on = ["directory.app_root"]
 }
@@ -123,6 +123,7 @@ resource "file" "env_file" {
 # Create a startup script
 resource "file" "startup_script" {
   path    = "${var.app_dir}/start.sh"
+  mode    = "0755"
   content = <<-EOF
     #!/bin/bash
     set -e
@@ -133,7 +134,6 @@ resource "file" "startup_script" {
     echo "Starting application on $HOSTNAME..."
     exec ./bin/myapp --config config/app.conf
   EOF
-  mode = "0755"
 
   depends_on = ["file.app_config", "file.env_file"]
 }
@@ -150,6 +150,7 @@ resource "exec" "init_app" {
 # Set up nginx as reverse proxy
 resource "file" "nginx_proxy" {
   path    = "/etc/nginx/sites-available/myapp"
+  mode    = "0644"
   content = <<-EOF
     upstream myapp {
         server 127.0.0.1:${var.app_port};
@@ -167,7 +168,6 @@ resource "file" "nginx_proxy" {
         }
     }
   EOF
-  mode = "0644"
 
   depends_on = ["package.nginx"]
 }

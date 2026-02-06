@@ -77,9 +77,9 @@ variable "users" {
 
 variable "database" {
   default = {
-    host     = "localhost"
-    port     = "5432"
-    name     = "myapp_db"
+    host      = "localhost"
+    port      = "5432"
+    name      = "myapp_db"
     pool_size = "10"
   }
   description = "Database connection settings"
@@ -96,9 +96,9 @@ variable "metadata" {
 
 variable "labels" {
   default = {
-    app         = "myapp"
-    component   = "api"
-    managed_by  = "hostcfg"
+    app        = "myapp"
+    component  = "api"
+    managed_by = "hostcfg"
   }
   description = "Resource labels"
 }
@@ -148,7 +148,7 @@ resource "file" "env_file" {
     # Features (joined from list)
     ENABLED_FEATURES=${join(",", var.features)}
   EOF
-  mode = "0600"
+  mode    = "0600"
 
   depends_on = ["directory.config"]
 }

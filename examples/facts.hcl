@@ -74,7 +74,7 @@ resource "file" "system_info" {
       UID: ${fact.user.uid}
       GID: ${fact.user.gid}
   EOF
-  mode = "0644"
+  mode    = "0644"
 }
 
 # Use facts in a template file

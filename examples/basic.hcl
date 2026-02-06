@@ -38,7 +38,7 @@ resource "file" "app_config" {
       "port": ${var.port}
     }
   EOF
-  mode = "0644"
+  mode    = "0644"
 
   depends_on = ["directory.config_dir"]
 }

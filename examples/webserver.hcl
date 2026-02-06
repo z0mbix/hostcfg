@@ -40,9 +40,9 @@ resource "file" "index" {
     </body>
     </html>
   EOF
-  owner = "www-data"
-  group = "www-data"
-  mode  = "0644"
+  owner   = "www-data"
+  group   = "www-data"
+  mode    = "0644"
 
   depends_on = ["directory.docroot"]
 }
@@ -62,7 +62,7 @@ resource "file" "nginx_vhost" {
         }
     }
   EOF
-  mode = "0644"
+  mode    = "0644"
 
   depends_on = ["package.nginx"]
 }
