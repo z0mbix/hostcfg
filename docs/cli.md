@@ -44,6 +44,18 @@ hostcfg validate
 hostcfg validate -c /path/to/config.hcl
 ```
 
+### update
+
+Update hostcfg to the latest version from GitHub Releases.
+
+```bash
+hostcfg update                   # Update to latest version
+hostcfg update --dry-run         # Check for updates without installing
+hostcfg update --force           # Force update even if already up to date
+```
+
+Supports `GITHUB_TOKEN` environment variable for authenticated API requests.
+
 ## Global Flags
 
 | Flag | Short | Description |

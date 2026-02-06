@@ -5,6 +5,7 @@ default:
 # Initialise the project
 init:
     mkdir -p bin
+    cp scripts/pre-commit .git/hooks/pre-commit
 
 # Build the binary
 build: init
