@@ -43,7 +43,7 @@ fi
 BOOT_ARGS=()
 if [[ "${1:-}" == "install" ]] || [[ ! -s "${DISK}" ]] || [[ $(stat -f%z "${DISK}" 2>/dev/null || stat -c%s "${DISK}" 2>/dev/null) -lt 1000000 ]]; then
   echo "Booting from ISO (install mode)..."
-  BOOT_ARGS+=(-cdrom "${ISO}" -boot d)
+  BOOT_ARGS+=(-drive "file=${ISO},media=cdrom" -boot d)
 else
   echo "Booting from disk..."
   BOOT_ARGS+=(-boot c)
@@ -52,7 +52,9 @@ fi
 exec qemu-system-x86_64 \
   -m "${MEMORY}" \
   -smp 2 \
-  -drive "file=${DISK},format=qcow2" \
+  -cpu qemu64 \
+  -machine q35 \
+  -drive "file=${DISK},format=qcow2,if=virtio" \
   "${BOOT_ARGS[@]}" \
   -netdev "user,id=net0,hostfwd=tcp::${SSH_PORT}-:22" \
   -device virtio-net-pci,netdev=net0 \

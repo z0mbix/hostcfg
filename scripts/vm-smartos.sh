@@ -46,9 +46,11 @@ echo "Booting SmartOS (live image)..."
 exec qemu-system-x86_64 \
   -m "${MEMORY}" \
   -smp 2 \
-  -cdrom "${ISO}" \
+  -cpu qemu64 \
+  -machine q35 \
+  -drive "file=${ISO},media=cdrom" \
   -boot d \
-  -drive "file=${ZONES_DISK},format=qcow2" \
+  -drive "file=${ZONES_DISK},format=qcow2,if=virtio" \
   -netdev "user,id=net0,hostfwd=tcp::${SSH_PORT}-:22" \
   -device virtio-net-pci,netdev=net0 \
   -display none \
