@@ -38,8 +38,11 @@ to define and manage system resources in an idempotent way.
 
 Resources include files, directories, packages, services, cron jobs,
 exec commands, and hostname configuration.`,
+		Version:      version,
 		SilenceUsage: true,
 	}
+
+	rootCmd.SetVersionTemplate(fmt.Sprintf("hostcfg %s\n  commit: %s\n  built:  %s\n", version, commit, date))
 
 	// Global flags
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "",
@@ -56,23 +59,9 @@ exec commands, and hostname configuration.`,
 	rootCmd.AddCommand(NewApplyCmd())
 	rootCmd.AddCommand(NewValidateCmd())
 	rootCmd.AddCommand(NewFactsCmd())
-	rootCmd.AddCommand(NewVersionCmd())
 	rootCmd.AddCommand(NewUpdateCmd())
 
 	return rootCmd
-}
-
-// NewVersionCmd creates the version command
-func NewVersionCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "version",
-		Short: "Print version information",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("hostcfg %s\n", version)
-			fmt.Printf("  commit: %s\n", commit)
-			fmt.Printf("  built:  %s\n", date)
-		},
-	}
 }
 
 // Execute runs the CLI
