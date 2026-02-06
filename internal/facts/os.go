@@ -59,6 +59,11 @@ func gatherOSFacts() (OSFacts, error) {
 		facts.Distribution = "NetBSD"
 		facts.DistributionVersion = getUnameVersion()
 
+	case "illumos":
+		facts.Family = "illumos"
+		facts.Distribution = getIllumosDistribution()
+		facts.DistributionVersion = getUnameVersion()
+
 	case "dragonfly":
 		facts.Family = "dragonfly"
 		facts.Distribution = "DragonFly BSD"
@@ -163,4 +168,26 @@ func getUnameVersion() string {
 		return ""
 	}
 	return strings.TrimSpace(string(out))
+}
+
+// getIllumosDistribution detects the illumos distribution name
+func getIllumosDistribution() string {
+	// Try /etc/os-release first (OmniOS, OpenIndiana)
+	osRelease, err := parseOSRelease()
+	if err == nil {
+		if name := strings.Trim(osRelease["NAME"], "\""); name != "" {
+			return name
+		}
+	}
+
+	// Fall back to /etc/release (SmartOS)
+	data, err := os.ReadFile("/etc/release")
+	if err == nil {
+		line := strings.TrimSpace(strings.SplitN(string(data), "\n", 2)[0])
+		if line != "" {
+			return line
+		}
+	}
+
+	return "illumos"
 }

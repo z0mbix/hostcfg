@@ -253,6 +253,11 @@ func detectServiceManager() (ServiceManager, error) {
 		return &OpenBSDServiceManager{}, nil
 	case "netbsd":
 		return &NetBSDServiceManager{}, nil
+	case "illumos":
+		if _, err := exec.LookPath("svcadm"); err == nil {
+			return &SMFServiceManager{}, nil
+		}
+		return nil, fmt.Errorf("no supported service manager found for illumos (SMF not available)")
 	case "linux":
 		// Check for systemd
 		if _, err := exec.LookPath("systemctl"); err == nil {
