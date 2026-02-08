@@ -53,7 +53,17 @@ else
   BOOT_ARGS+=(-boot c)
 fi
 
-exec qemu-system-x86_64 \
+VNC_PASSWORD="hostcfg"
+
+echo "VNC console: vnc://localhost:$((5900 + VNC_DISPLAY)) (password: ${VNC_PASSWORD})"
+echo "QEMU monitor on stdio (type 'quit' to stop VM)"
+echo ""
+
+# Use a monitor socket to set the VNC password, then hand control to stdio
+MONITOR_SOCK="${VM_DIR}/monitor.sock"
+rm -f "${MONITOR_SOCK}"
+
+qemu-system-x86_64 \
   -m "${MEMORY}" \
   -smp 2 \
   -cpu qemu64 \
@@ -62,5 +72,23 @@ exec qemu-system-x86_64 \
   "${BOOT_ARGS[@]}" \
   -netdev "user,id=net0,hostfwd=tcp::${SSH_PORT}-:22" \
   -device virtio-net-pci,netdev=net0 \
-  -vnc ":${VNC_DISPLAY}" \
-  -serial mon:stdio
+  -display "vnc=:${VNC_DISPLAY},password=on" \
+  -vga std \
+  -monitor "unix:${MONITOR_SOCK},server,nowait" \
+  -daemonize
+
+# Set VNC password via monitor socket
+sleep 1
+python3 -c "
+import socket, time
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+s.connect('${MONITOR_SOCK}')
+time.sleep(0.5)
+s.recv(1024)
+s.sendall(b'change vnc password ${VNC_PASSWORD}\n')
+time.sleep(0.5)
+s.close()
+"
+
+echo "VM started in background (PID in QEMU)"
+echo "To stop: python3 -c \"import socket; s=socket.socket(socket.AF_UNIX); s.connect('${MONITOR_SOCK}'); s.sendall(b'quit\n'); s.close()\""
