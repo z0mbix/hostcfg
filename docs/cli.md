@@ -64,6 +64,34 @@ Supports `GITHUB_TOKEN` environment variable for authenticated API requests.
 | `--var` | `-e` | Set a variable (can be used multiple times): `-e key=value` |
 | `--var-file` | `-f` | Path to variable file (can be used multiple times) |
 | `--no-color` | | Disable colored output |
+| `--verbose` | `-V` | Show detailed output including commands being executed |
+| `--timeout` | | Default timeout per resource, e.g. `30s`, `5m`, `1h` (default: `5m`) |
+
+## Resource Timeouts
+
+Each resource has a timeout that limits how long its read, diff, and apply phases can take. If a resource exceeds its timeout, the operation is cancelled and an error is reported.
+
+The default timeout is 5 minutes, configurable with `--timeout`:
+
+```bash
+hostcfg apply --timeout 2m       # 2 minute default per resource
+```
+
+Individual resources can override the default with the `timeout` attribute:
+
+```hcl
+resource "exec" "compile" {
+  command = "make all"
+  creates = "/usr/local/bin/myapp"
+  timeout = "30m"
+}
+
+resource "package" "nginx" {
+  name   = "nginx"
+  ensure = "present"
+  timeout = "10m"
+}
+```
 
 ## Variable Files
 

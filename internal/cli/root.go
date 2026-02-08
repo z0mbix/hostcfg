@@ -10,10 +10,12 @@ import (
 )
 
 var (
-	configPath string
-	variables  []string
-	varFiles   []string
-	noColor    bool
+	configPath     string
+	variables      []string
+	varFiles       []string
+	noColor        bool
+	verbose        bool
+	defaultTimeout string
 
 	// Version information (set by main)
 	version = "dev"
@@ -53,6 +55,10 @@ exec commands, and hostname configuration.`,
 		"Path to variable file (can be used multiple times)")
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false,
 		"Disable colored output")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "V", false,
+		"Show detailed output including commands being executed")
+	rootCmd.PersistentFlags().StringVar(&defaultTimeout, "timeout", "5m",
+		"Default timeout per resource (e.g. 30s, 5m, 1h)")
 
 	// Add subcommands
 	rootCmd.AddCommand(NewPlanCmd())

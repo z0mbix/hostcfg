@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
@@ -43,8 +44,13 @@ type Executor struct {
 	printer   *diff.Printer
 	out       io.Writer
 	useColors bool
+	verbose   bool
 	roles     map[string]*role.Role
 	cliVars   map[string]cty.Value
+
+	// timeout tracking
+	defaultTimeout    time.Duration
+	resourceTimeouts  map[string]time.Duration // resourceID -> timeout
 
 	// for_each tracking
 	forEachValues        map[string]cty.Value // resourceID -> each.value
@@ -56,12 +62,17 @@ type Executor struct {
 }
 
 // NewExecutor creates a new executor
-func NewExecutor(out io.Writer, useColors bool) *Executor {
+func NewExecutor(out io.Writer, useColors bool, verbose bool, defaultTimeout time.Duration) *Executor {
 	parser := config.NewParser()
 
 	// Gather system facts and inject into parser
 	if f, err := facts.Gather(); err == nil {
 		parser.SetFacts(f.ToCtyValue())
+	}
+
+	// Enable verbose command logging in resources
+	if verbose {
+		resource.VerboseOutput = out
 	}
 
 	return &Executor{
@@ -70,6 +81,9 @@ func NewExecutor(out io.Writer, useColors bool) *Executor {
 		printer:              diff.NewPrinter(out, useColors),
 		out:                  out,
 		useColors:            useColors,
+		verbose:              verbose,
+		defaultTimeout:       defaultTimeout,
+		resourceTimeouts:     make(map[string]time.Duration),
 		roles:                make(map[string]*role.Role),
 		cliVars:              make(map[string]cty.Value),
 		forEachValues:        make(map[string]cty.Value),
@@ -203,6 +217,15 @@ func (e *Executor) loadConfig(cfg *config.Config) error {
 		resourceID := block.Type + "." + block.Name
 		if block.When != nil {
 			e.whenExpressions[resourceID] = block.When
+		}
+
+		// Store per-resource timeout if present
+		if block.Timeout != nil {
+			d, err := time.ParseDuration(*block.Timeout)
+			if err != nil {
+				return fmt.Errorf("invalid timeout %q for %s: %w", *block.Timeout, resourceID, err)
+			}
+			e.resourceTimeouts[resourceID] = d
 		}
 
 		e.graph.Add(r)
@@ -594,6 +617,14 @@ func (e *Executor) extractImplicitDependencies(block *config.ResourceBlock) []st
 	return result
 }
 
+// resourceTimeout returns the timeout for a resource, falling back to the default
+func (e *Executor) resourceTimeout(resourceID string) time.Duration {
+	if t, ok := e.resourceTimeouts[resourceID]; ok {
+		return t
+	}
+	return e.defaultTimeout
+}
+
 // Plan generates and prints the execution plan
 func (e *Executor) Plan(ctx context.Context) (*PlanResult, error) {
 	result := &PlanResult{
@@ -650,13 +681,30 @@ func (e *Executor) Plan(ctx context.Context) (*PlanResult, error) {
 			}
 		}
 
-		current, err := r.Read(ctx)
+		timeout := e.resourceTimeout(resourceID)
+		rctx, cancel := context.WithTimeout(ctx, timeout)
+
+		if e.verbose {
+			_, _ = fmt.Fprintf(e.out, "  [verbose] Reading current state of %s (timeout: %s)...\n", resourceID, timeout)
+		}
+		current, err := r.Read(rctx)
 		if err != nil {
+			cancel()
+			if rctx.Err() == context.DeadlineExceeded {
+				return nil, fmt.Errorf("timeout reading %s after %s", resourceID, timeout)
+			}
 			return nil, fmt.Errorf("failed to read %s: %w", resourceID, err)
 		}
 
-		plan, err := r.Diff(ctx, current)
+		if e.verbose {
+			_, _ = fmt.Fprintf(e.out, "  [verbose] Computing diff for %s...\n", resourceID)
+		}
+		plan, err := r.Diff(rctx, current)
+		cancel()
 		if err != nil {
+			if rctx.Err() == context.DeadlineExceeded {
+				return nil, fmt.Errorf("timeout diffing %s after %s", resourceID, timeout)
+			}
 			return nil, fmt.Errorf("failed to diff %s: %w", resourceID, err)
 		}
 
@@ -756,8 +804,16 @@ func (e *Executor) Apply(ctx context.Context, result *PlanResult, dryRun bool) e
 		}
 
 		_, _ = fmt.Fprintf(e.out, "Applying %s...\n", resource.ID(r))
-		if err := r.Apply(ctx, plan, true); err != nil {
-			return fmt.Errorf("failed to apply %s: %w", resource.ID(r), err)
+		resourceID := resource.ID(r)
+		timeout := e.resourceTimeout(resourceID)
+		rctx, cancel := context.WithTimeout(ctx, timeout)
+		err := r.Apply(rctx, plan, true)
+		cancel()
+		if err != nil {
+			if rctx.Err() == context.DeadlineExceeded {
+				return fmt.Errorf("timeout applying %s after %s", resourceID, timeout)
+			}
+			return fmt.Errorf("failed to apply %s: %w", resourceID, err)
 		}
 		_, _ = fmt.Fprintf(e.out, "  Done.\n")
 	}

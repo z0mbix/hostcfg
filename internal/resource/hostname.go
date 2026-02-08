@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/hashicorp/hcl/v2"
@@ -55,17 +56,23 @@ func (r *HostnameResource) Dependencies() []string {
 	return r.dependsOn
 }
 
+func hostnameFile() string {
+	if runtime.GOOS == "illumos" || runtime.GOOS == "solaris" {
+		return "/etc/nodename"
+	}
+	return "/etc/hostname"
+}
+
 func (r *HostnameResource) Read(ctx context.Context) (*State, error) {
 	state := NewState()
 
-	// Read from /etc/hostname
-	content, err := os.ReadFile("/etc/hostname")
+	content, err := os.ReadFile(hostnameFile())
 	if os.IsNotExist(err) {
 		state.Exists = false
 		return state, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to read /etc/hostname: %w", err)
+		return nil, fmt.Errorf("failed to read %s: %w", hostnameFile(), err)
 	}
 
 	state.Exists = true
@@ -110,19 +117,18 @@ func (r *HostnameResource) Apply(ctx context.Context, plan *Plan, apply bool) er
 		return nil
 	}
 
-	// Write to /etc/hostname
-	if err := os.WriteFile("/etc/hostname", []byte(r.config.Name+"\n"), 0644); err != nil {
-		return fmt.Errorf("failed to write /etc/hostname: %w", err)
+	// Write hostname to persistent file
+	if err := os.WriteFile(hostnameFile(), []byte(r.config.Name+"\n"), 0644); err != nil {
+		return fmt.Errorf("failed to write %s: %w", hostnameFile(), err)
 	}
 
-	// Set the hostname immediately using hostnamectl if available
+	// Set the hostname immediately
 	if _, err := exec.LookPath("hostnamectl"); err == nil {
 		cmd := exec.CommandContext(ctx, "hostnamectl", "set-hostname", r.config.Name)
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to set hostname with hostnamectl: %w", err)
 		}
 	} else {
-		// Fallback to hostname command
 		cmd := exec.CommandContext(ctx, "hostname", r.config.Name)
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to set hostname: %w", err)

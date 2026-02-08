@@ -3,7 +3,6 @@ package resource
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"strings"
 )
 
@@ -13,14 +12,12 @@ type SMFServiceManager struct{}
 func (m *SMFServiceManager) Name() string { return "smf" }
 
 func (m *SMFServiceManager) Exists(ctx context.Context, name string) (bool, error) {
-	cmd := exec.CommandContext(ctx, "svcs", "-H", name)
-	err := cmd.Run()
+	err := RunCmdSilent(ctx, "svcs", "-H", name)
 	return err == nil, nil
 }
 
 func (m *SMFServiceManager) IsRunning(ctx context.Context, name string) (bool, error) {
-	cmd := exec.CommandContext(ctx, "svcs", "-H", "-o", "state", name)
-	output, err := cmd.Output()
+	output, err := RunCmd(ctx, "svcs", "-H", "-o", "state", name)
 	if err != nil {
 		return false, nil
 	}
@@ -28,9 +25,7 @@ func (m *SMFServiceManager) IsRunning(ctx context.Context, name string) (bool, e
 }
 
 func (m *SMFServiceManager) IsEnabled(ctx context.Context, name string) (bool, error) {
-	// A service is enabled if it's not in the "disabled" state
-	cmd := exec.CommandContext(ctx, "svcs", "-H", "-o", "state", name)
-	output, err := cmd.Output()
+	output, err := RunCmd(ctx, "svcs", "-H", "-o", "state", name)
 	if err != nil {
 		return false, nil
 	}
@@ -38,8 +33,7 @@ func (m *SMFServiceManager) IsEnabled(ctx context.Context, name string) (bool, e
 }
 
 func (m *SMFServiceManager) Start(ctx context.Context, name string) error {
-	cmd := exec.CommandContext(ctx, "svcadm", "enable", "-t", name)
-	output, err := cmd.CombinedOutput()
+	output, err := RunCmd(ctx, "svcadm", "enable", "-t", name)
 	if err != nil {
 		return fmt.Errorf("svcadm enable -t failed: %w\nOutput: %s", err, string(output))
 	}
@@ -47,8 +41,7 @@ func (m *SMFServiceManager) Start(ctx context.Context, name string) error {
 }
 
 func (m *SMFServiceManager) Stop(ctx context.Context, name string) error {
-	cmd := exec.CommandContext(ctx, "svcadm", "disable", "-t", name)
-	output, err := cmd.CombinedOutput()
+	output, err := RunCmd(ctx, "svcadm", "disable", "-t", name)
 	if err != nil {
 		return fmt.Errorf("svcadm disable -t failed: %w\nOutput: %s", err, string(output))
 	}
@@ -56,8 +49,7 @@ func (m *SMFServiceManager) Stop(ctx context.Context, name string) error {
 }
 
 func (m *SMFServiceManager) Enable(ctx context.Context, name string) error {
-	cmd := exec.CommandContext(ctx, "svcadm", "enable", name)
-	output, err := cmd.CombinedOutput()
+	output, err := RunCmd(ctx, "svcadm", "enable", name)
 	if err != nil {
 		return fmt.Errorf("svcadm enable failed: %w\nOutput: %s", err, string(output))
 	}
@@ -65,8 +57,7 @@ func (m *SMFServiceManager) Enable(ctx context.Context, name string) error {
 }
 
 func (m *SMFServiceManager) Disable(ctx context.Context, name string) error {
-	cmd := exec.CommandContext(ctx, "svcadm", "disable", name)
-	output, err := cmd.CombinedOutput()
+	output, err := RunCmd(ctx, "svcadm", "disable", name)
 	if err != nil {
 		return fmt.Errorf("svcadm disable failed: %w\nOutput: %s", err, string(output))
 	}

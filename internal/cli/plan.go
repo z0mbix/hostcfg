@@ -2,8 +2,10 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/z0mbix/hostcfg/internal/engine"
@@ -40,9 +42,15 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		configDir = filepath.Dir(path)
 	}
 
+	// Parse default timeout
+	timeout, err := time.ParseDuration(defaultTimeout)
+	if err != nil {
+		return fmt.Errorf("invalid timeout %q: %w", defaultTimeout, err)
+	}
+
 	// Create executor
 	useColors := !noColor && isTerminal()
-	executor := engine.NewExecutor(os.Stdout, useColors)
+	executor := engine.NewExecutor(os.Stdout, useColors, verbose, timeout)
 
 	// Load variables (auto-load files, --var-file, -e)
 	if err := loadVariables(executor, configDir); err != nil {

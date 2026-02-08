@@ -126,8 +126,7 @@ type PkginPackageManager struct{}
 func (m *PkginPackageManager) Name() string { return "pkgin" }
 
 func (m *PkginPackageManager) IsInstalled(ctx context.Context, name string) (bool, string, error) {
-	cmd := exec.CommandContext(ctx, "pkgin", "list")
-	output, err := cmd.Output()
+	output, err := RunCmd(ctx, "pkgin", "list")
 	if err != nil {
 		return false, "", nil
 	}
@@ -156,8 +155,7 @@ func (m *PkginPackageManager) Install(ctx context.Context, name, version string)
 	if version != "" {
 		pkg = fmt.Sprintf("%s-%s", name, version)
 	}
-	cmd := exec.CommandContext(ctx, "pkgin", "-y", "install", pkg)
-	output, err := cmd.CombinedOutput()
+	output, err := RunCmd(ctx, "pkgin", "-y", "install", pkg)
 	if err != nil {
 		return fmt.Errorf("pkgin install failed: %w\nOutput: %s", err, string(output))
 	}
@@ -165,8 +163,7 @@ func (m *PkginPackageManager) Install(ctx context.Context, name, version string)
 }
 
 func (m *PkginPackageManager) Remove(ctx context.Context, name string) error {
-	cmd := exec.CommandContext(ctx, "pkgin", "-y", "remove", name)
-	output, err := cmd.CombinedOutput()
+	output, err := RunCmd(ctx, "pkgin", "-y", "remove", name)
 	if err != nil {
 		return fmt.Errorf("pkgin remove failed: %w\nOutput: %s", err, string(output))
 	}
