@@ -1,5 +1,6 @@
 # Binary
 bin/hostcfg
+bin/hostcfg-*
 
 # IDE
 .idea/
