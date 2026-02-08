@@ -8,6 +8,8 @@ All resources support the following optional attributes:
 |-----------|------|-------------|
 | `description` | string | Human-readable description displayed in plan/apply output |
 | `depends_on` | list | Explicit dependencies on other resources |
+| `timeout` | string | Timeout for this resource's operations (e.g. `30s`, `5m`, `1h`). Overrides `--timeout` flag |
+| `when` | list | Conditions that must be true for this resource to be applied |
 
 ### Description
 
@@ -157,6 +159,10 @@ BSD:
 - `pkgin` (NetBSD, preferred)
 - `pkg_add` (NetBSD, fallback)
 
+illumos:
+- `pkgin` (SmartOS, preferred)
+- `pkg` IPS (OmniOS, OpenIndiana)
+
 **Idempotency**: Queries package manager to check if package is installed and at correct version.
 
 **macOS notes**: Version pinning uses Homebrew's `@version` syntax (e.g., `node@18`). Not all formulae support versioned installs.
@@ -193,6 +199,9 @@ BSD:
 - `rc.d` with `service` command (FreeBSD)
 - `rcctl` (OpenBSD)
 - `rc.d` scripts (NetBSD)
+
+illumos:
+- `smf` via svcadm/svcs (SmartOS, OmniOS, OpenIndiana)
 
 **Idempotency**: Queries the service manager to check current running and enabled state.
 
@@ -234,7 +243,7 @@ resource "hostname" "main" {
 |-----------|------|----------|-------------|
 | `name` | string | yes | Desired hostname |
 
-**Idempotency**: Reads `/etc/hostname` and compares with desired value.
+**Idempotency**: Reads `/etc/hostname` (or `/etc/nodename` on illumos/Solaris) and compares with desired value.
 
 ## user
 
@@ -339,7 +348,7 @@ resource "download" "kubectl" {
 | `group` | string | no | File group name |
 | `mode` | string | no | File permissions in octal (default: `0644`) |
 | `force` | bool | no | Force re-download even if file exists |
-| `timeout` | int | no | HTTP timeout in seconds (default: `30`) |
+| `http_timeout` | int | no | HTTP timeout in seconds (default: `30`) |
 
 **Idempotency**: Computes checksum of existing file and compares with expected. Only downloads if checksum differs or file doesn't exist.
 

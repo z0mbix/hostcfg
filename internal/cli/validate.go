@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/z0mbix/hostcfg/internal/engine"
@@ -38,7 +39,8 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create executor
-	executor := engine.NewExecutor(os.Stdout, !noColor)
+	timeout, _ := time.ParseDuration(defaultTimeout)
+	executor := engine.NewExecutor(os.Stdout, !noColor, verbose, timeout)
 
 	// Load variables (auto-load files, --var-file, -e)
 	if err := loadVariables(executor, configDir); err != nil {

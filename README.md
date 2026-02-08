@@ -11,7 +11,7 @@ A simple, idempotent configuration management tool using HCL syntax.
 - **Roles** - Reusable configuration modules with variables and templates
 - **System facts** - Ansible-style facts for OS, architecture, and user info
 - **Diff output** - Clear visualization of planned changes
-- **Cross-platform** - Supports Linux, macOS, and BSD systems
+- **Cross-platform** - Supports Linux, macOS, BSD, and illumos systems
 
 ## Supported Platforms
 

@@ -44,9 +44,13 @@ fmt:
 tidy:
     go mod tidy
 
+# Cross-compile for a target platform (e.g. just build-for illumos amd64)
+build-for os arch: init
+    CGO_ENABLED=0 GOOS={{ os }} GOARCH={{ arch }} go build -o bin/hostcfg-{{ os }}-{{ arch }} ./cmd/hostcfg
+
 # Clean build artifacts
 clean:
-    rm -f bin/hostcfg coverage.out coverage.html
+    rm -f bin/hostcfg bin/hostcfg-* coverage.out coverage.html
 
 # Install binary to GOPATH/bin
 install:

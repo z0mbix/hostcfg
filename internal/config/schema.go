@@ -36,6 +36,7 @@ type ResourceBlock struct {
 	DependsOn   []string       `hcl:"depends_on,optional"`
 	ForEach     hcl.Expression `hcl:"for_each,optional"`
 	When        hcl.Expression `hcl:"when,optional"`
+	Timeout     *string        `hcl:"timeout,optional"`
 	Body        hcl.Body       `hcl:",remain"`
 
 	// RoleBaseDir is the base directory for role resources (for template path resolution).
@@ -145,8 +146,8 @@ type DownloadResourceConfig struct {
 	Owner    *string `hcl:"owner,optional"`
 	Group    *string `hcl:"group,optional"`
 	Mode     *string `hcl:"mode,optional"`
-	Force    *bool   `hcl:"force,optional"`   // Force re-download even if checksum matches
-	Timeout  *int    `hcl:"timeout,optional"` // HTTP timeout in seconds (default: 30)
+	Force    *bool   `hcl:"force,optional"`        // Force re-download even if checksum matches
+	Timeout  *int    `hcl:"http_timeout,optional"` // HTTP timeout in seconds (default: 30)
 }
 
 // StatResourceConfig holds stat resource specific attributes

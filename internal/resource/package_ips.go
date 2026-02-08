@@ -3,7 +3,6 @@ package resource
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"strings"
 )
 
@@ -13,8 +12,7 @@ type IPSPackageManager struct{}
 func (m *IPSPackageManager) Name() string { return "pkg" }
 
 func (m *IPSPackageManager) IsInstalled(ctx context.Context, name string) (bool, string, error) {
-	cmd := exec.CommandContext(ctx, "pkg", "list", "-H", name)
-	output, err := cmd.Output()
+	output, err := RunCmd(ctx, "pkg", "list", "-H", name)
 	if err != nil {
 		return false, "", nil
 	}
@@ -33,8 +31,7 @@ func (m *IPSPackageManager) Install(ctx context.Context, name, version string) e
 	if version != "" {
 		pkg = fmt.Sprintf("%s@%s", name, version)
 	}
-	cmd := exec.CommandContext(ctx, "pkg", "install", "--accept", pkg)
-	output, err := cmd.CombinedOutput()
+	output, err := RunCmd(ctx, "pkg", "install", "--accept", pkg)
 	if err != nil {
 		return fmt.Errorf("pkg install failed: %w\nOutput: %s", err, string(output))
 	}
@@ -42,8 +39,7 @@ func (m *IPSPackageManager) Install(ctx context.Context, name, version string) e
 }
 
 func (m *IPSPackageManager) Remove(ctx context.Context, name string) error {
-	cmd := exec.CommandContext(ctx, "pkg", "uninstall", name)
-	output, err := cmd.CombinedOutput()
+	output, err := RunCmd(ctx, "pkg", "uninstall", name)
 	if err != nil {
 		return fmt.Errorf("pkg uninstall failed: %w\nOutput: %s", err, string(output))
 	}
