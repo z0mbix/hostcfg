@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/z0mbix/cliout"
 	"github.com/z0mbix/hostcfg/internal/config"
 	"github.com/z0mbix/hostcfg/internal/engine"
 )
@@ -21,6 +22,9 @@ var (
 	version = "dev"
 	commit  = "none"
 	date    = "unknown"
+
+	// Shared output instance
+	out *cliout.Output
 )
 
 // SetVersionInfo sets the version information from build-time variables
@@ -42,6 +46,21 @@ Resources include files, directories, packages, services, cron jobs,
 exec commands, and hostname configuration.`,
 		Version:      version,
 		SilenceUsage: true,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			// Create the shared cliout instance
+			out = cliout.New()
+			out.ClearPrefix()
+
+			// Apply --no-color flag
+			if noColor {
+				out.SetColorEnabled(false)
+			}
+
+			// Apply --verbose flag
+			if verbose {
+				out.SetLevel(cliout.LevelDebug)
+			}
+		},
 	}
 
 	rootCmd.SetVersionTemplate(fmt.Sprintf("hostcfg %s\n  commit: %s\n  built:  %s\n", version, commit, date))

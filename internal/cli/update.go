@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/z0mbix/hostcfg/internal/updater"
@@ -24,34 +23,34 @@ func NewUpdateCmd() *cobra.Command {
 
 			u := updater.New(version)
 
-			fmt.Fprintf(os.Stderr, "Checking for updates...\n")
+			out.Info("Checking for updates...")
 			result, err := u.Check()
 			if err != nil {
 				return fmt.Errorf("checking for updates: %w", err)
 			}
 
 			if !result.UpdateNeeded && !force {
-				fmt.Fprintf(os.Stderr, "Already up to date (%s)\n", result.CurrentVersion)
+				out.Successf("Already up to date (%s)", result.CurrentVersion)
 				return nil
 			}
 
 			if result.UpdateNeeded {
-				fmt.Fprintf(os.Stderr, "Update available: %s → %s\n", result.CurrentVersion, result.LatestVersion)
+				out.Infof("Update available: %s → %s", result.CurrentVersion, result.LatestVersion)
 			} else {
-				fmt.Fprintf(os.Stderr, "Forcing update to %s\n", result.LatestVersion)
+				out.Infof("Forcing update to %s", result.LatestVersion)
 			}
 
 			if dryRun {
-				fmt.Fprintf(os.Stderr, "Dry run: skipping download and install\n")
+				out.Info("Dry run: skipping download and install")
 				return nil
 			}
 
-			fmt.Fprintf(os.Stderr, "Downloading %s...\n", result.AssetName)
+			out.Infof("Downloading %s...", result.AssetName)
 			if err := u.Update(result); err != nil {
 				return fmt.Errorf("updating: %w", err)
 			}
 
-			fmt.Fprintf(os.Stderr, "Successfully updated to %s\n", result.LatestVersion)
+			out.Successf("Successfully updated to %s", result.LatestVersion)
 			return nil
 		},
 	}

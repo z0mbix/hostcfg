@@ -2,28 +2,22 @@ package diff
 
 import (
 	"fmt"
-	"io"
 	"strings"
 
-	"github.com/fatih/color"
 	"github.com/sergi/go-diff/diffmatchpatch"
+	"github.com/z0mbix/cliout"
 	"github.com/z0mbix/hostcfg/internal/resource"
 )
 
 // Printer handles printing resource diffs with colors
 type Printer struct {
-	out       io.Writer
-	useColors bool
+	out *cliout.Output
 }
 
 // NewPrinter creates a new diff printer
-func NewPrinter(out io.Writer, useColors bool) *Printer {
-	if !useColors {
-		color.NoColor = true
-	}
+func NewPrinter(out *cliout.Output) *Printer {
 	return &Printer{
-		out:       out,
-		useColors: useColors,
+		out: out,
 	}
 }
 
@@ -45,22 +39,17 @@ func (p *Printer) PrintPlan(r resource.Resource, plan *resource.Plan) {
 
 	// Print description first if present
 	if desc := r.Description(); desc != "" {
-		if p.useColors {
-			gray := color.New(color.FgHiBlack)
-			_, _ = gray.Fprintf(p.out, "» %s\n", desc)
-		} else {
-			_, _ = fmt.Fprintf(p.out, "» %s\n", desc)
-		}
+		p.out.Infof("%s", p.out.Colorize(fmt.Sprintf("» %s", desc), cliout.ColorBrightBlack))
 	}
 
 	// Print resource header with action symbol
 	switch plan.Action {
 	case resource.ActionCreate:
-		p.printHeader("+", resource.ID(r), color.FgGreen)
+		p.out.Infof("%s %s", p.out.Colorize("+", cliout.ColorGreen), p.out.Colorize(resource.ID(r), cliout.ColorGreen))
 	case resource.ActionUpdate:
-		p.printHeader("~", resource.ID(r), color.FgYellow)
+		p.out.Infof("%s %s", p.out.Colorize("~", cliout.ColorYellow), p.out.Colorize(resource.ID(r), cliout.ColorYellow))
 	case resource.ActionDelete:
-		p.printHeader("-", resource.ID(r), color.FgRed)
+		p.out.Infof("%s %s", p.out.Colorize("-", cliout.ColorRed), p.out.Colorize(resource.ID(r), cliout.ColorRed))
 	}
 
 	// Print each change
@@ -68,7 +57,7 @@ func (p *Printer) PrintPlan(r resource.Resource, plan *resource.Plan) {
 		p.printChange(plan.Action, change)
 	}
 
-	_, _ = fmt.Fprintln(p.out)
+	p.out.Info("")
 }
 
 // printSkipped prints a skipped resource with its skip reason
@@ -80,32 +69,11 @@ func (p *Printer) printSkipped(r resource.Resource, plan *resource.Plan) {
 
 	// Print description first if present
 	if desc := r.Description(); desc != "" {
-		if p.useColors {
-			gray := color.New(color.FgHiBlack)
-			_, _ = gray.Fprintf(p.out, "» %s\n", desc)
-		} else {
-			_, _ = fmt.Fprintf(p.out, "» %s\n", desc)
-		}
+		p.out.Infof("%s", p.out.Colorize(fmt.Sprintf("» %s", desc), cliout.ColorBrightBlack))
 	}
 
-	if p.useColors {
-		cyan := color.New(color.FgCyan, color.Bold)
-		_, _ = cyan.Fprintf(p.out, "# %s", resource.ID(r))
-		_, _ = fmt.Fprintf(p.out, " (skipped: %s)\n", skipReason)
-	} else {
-		_, _ = fmt.Fprintf(p.out, "# %s (skipped: %s)\n", resource.ID(r), skipReason)
-	}
-
-	_, _ = fmt.Fprintln(p.out)
-}
-
-func (p *Printer) printHeader(symbol, resourceID string, c color.Attribute) {
-	if p.useColors {
-		colored := color.New(c, color.Bold)
-		_, _ = colored.Fprintf(p.out, "%s %s\n", symbol, resourceID)
-	} else {
-		_, _ = fmt.Fprintf(p.out, "%s %s\n", symbol, resourceID)
-	}
+	p.out.Infof("%s (skipped: %s)", p.out.Colorize("# "+resource.ID(r), cliout.ColorCyan), skipReason)
+	p.out.Info("")
 }
 
 func (p *Printer) printChange(action resource.Action, change resource.Change) {
@@ -120,61 +88,35 @@ func (p *Printer) printChange(action resource.Action, change resource.Change) {
 }
 
 func (p *Printer) printAddition(change resource.Change) {
-	green := color.New(color.FgGreen)
-	if p.useColors {
-		_, _ = green.Fprintf(p.out, "    + %s = %s\n", change.Attribute, p.formatValue(change.New))
-	} else {
-		_, _ = fmt.Fprintf(p.out, "    + %s = %s\n", change.Attribute, p.formatValue(change.New))
-	}
+	p.out.Infof("    %s", p.out.Colorize(fmt.Sprintf("+ %s = %s", change.Attribute, p.formatValue(change.New)), cliout.ColorGreen))
 }
 
 func (p *Printer) printDeletion(change resource.Change) {
-	red := color.New(color.FgRed)
-	if p.useColors {
-		_, _ = red.Fprintf(p.out, "    - %s = %s\n", change.Attribute, p.formatValue(change.Old))
-	} else {
-		_, _ = fmt.Fprintf(p.out, "    - %s = %s\n", change.Attribute, p.formatValue(change.Old))
-	}
+	p.out.Infof("    %s", p.out.Colorize(fmt.Sprintf("- %s = %s", change.Attribute, p.formatValue(change.Old)), cliout.ColorRed))
 }
 
 func (p *Printer) printModification(change resource.Change) {
-	yellow := color.New(color.FgYellow)
-
 	// Check if this is content that should show a text diff
 	if change.Attribute == "content" {
 		oldStr, oldOk := change.Old.(string)
 		newStr, newOk := change.New.(string)
 		if oldOk && newOk {
-			if p.useColors {
-				_, _ = yellow.Fprintf(p.out, "    ~ %s: (changed)\n", change.Attribute)
-			} else {
-				_, _ = fmt.Fprintf(p.out, "    ~ %s: (changed)\n", change.Attribute)
-			}
+			p.out.Infof("    %s", p.out.Colorize(fmt.Sprintf("~ %s: (changed)", change.Attribute), cliout.ColorYellow))
 			p.printTextDiff(oldStr, newStr)
 			return
 		}
 	}
 
 	// Regular attribute change
-	if p.useColors {
-		_, _ = yellow.Fprintf(p.out, "    ~ %s: %s => %s\n",
-			change.Attribute,
-			p.formatValue(change.Old),
-			p.formatValue(change.New))
-	} else {
-		_, _ = fmt.Fprintf(p.out, "    ~ %s: %s => %s\n",
-			change.Attribute,
-			p.formatValue(change.Old),
-			p.formatValue(change.New))
-	}
+	p.out.Infof("    %s", p.out.Colorize(fmt.Sprintf("~ %s: %s => %s",
+		change.Attribute,
+		p.formatValue(change.Old),
+		p.formatValue(change.New)), cliout.ColorYellow))
 }
 
 func (p *Printer) printTextDiff(old, new string) {
 	dmp := diffmatchpatch.New()
 	diffs := dmp.DiffMain(old, new, false)
-
-	red := color.New(color.FgRed)
-	green := color.New(color.FgGreen)
 
 	// Print line-by-line diff
 	oldLines := strings.Split(old, "\n")
@@ -195,21 +137,13 @@ func (p *Printer) printTextDiff(old, new string) {
 
 		if hasOld && hasNew && oldLine == newLine {
 			// Unchanged line
-			_, _ = fmt.Fprintf(p.out, "        %s\n", oldLine)
+			p.out.Infof("        %s", oldLine)
 		} else {
 			if hasOld && oldLine != "" {
-				if p.useColors {
-					_, _ = red.Fprintf(p.out, "      - %s\n", oldLine)
-				} else {
-					_, _ = fmt.Fprintf(p.out, "      - %s\n", oldLine)
-				}
+				p.out.Infof("      %s", p.out.Colorize(fmt.Sprintf("- %s", oldLine), cliout.ColorRed))
 			}
 			if hasNew && newLine != "" {
-				if p.useColors {
-					_, _ = green.Fprintf(p.out, "      + %s\n", newLine)
-				} else {
-					_, _ = fmt.Fprintf(p.out, "      + %s\n", newLine)
-				}
+				p.out.Infof("      %s", p.out.Colorize(fmt.Sprintf("+ %s", newLine), cliout.ColorGreen))
 			}
 		}
 	}
@@ -234,20 +168,15 @@ func (p *Printer) formatValue(v interface{}) string {
 // PrintSummary prints the plan summary
 func (p *Printer) PrintSummary(toAdd, toChange, toDestroy, toSkip int) {
 	if toSkip > 0 {
-		_, _ = fmt.Fprintf(p.out, "Plan: %d to add, %d to change, %d to destroy, %d to skip.\n",
+		p.out.Infof("Plan: %d to add, %d to change, %d to destroy, %d to skip.",
 			toAdd, toChange, toDestroy, toSkip)
 	} else {
-		_, _ = fmt.Fprintf(p.out, "Plan: %d to add, %d to change, %d to destroy.\n",
+		p.out.Infof("Plan: %d to add, %d to change, %d to destroy.",
 			toAdd, toChange, toDestroy)
 	}
 }
 
 // PrintNoChanges prints when there are no changes
 func (p *Printer) PrintNoChanges() {
-	green := color.New(color.FgGreen)
-	if p.useColors {
-		_, _ = green.Fprintln(p.out, "No changes. Infrastructure is up-to-date.")
-	} else {
-		_, _ = fmt.Fprintln(p.out, "No changes. Infrastructure is up-to-date.")
-	}
+	p.out.Success("No changes. Infrastructure is up-to-date.")
 }

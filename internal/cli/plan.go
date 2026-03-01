@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -49,8 +48,7 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create executor
-	useColors := !noColor && isTerminal()
-	executor := engine.NewExecutor(os.Stdout, useColors, verbose, timeout)
+	executor := engine.NewExecutor(out, verbose, timeout)
 
 	// Load variables (auto-load files, --var-file, -e)
 	if err := loadVariables(executor, configDir); err != nil {
@@ -78,9 +76,4 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	executor.PrintPlan(result)
 
 	return nil
-}
-
-func isTerminal() bool {
-	fileInfo, _ := os.Stdout.Stat()
-	return (fileInfo.Mode() & os.ModeCharDevice) != 0
 }

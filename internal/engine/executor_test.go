@@ -8,13 +8,25 @@ import (
 	"testing"
 	"time"
 
+	"github.com/z0mbix/cliout"
 	"github.com/z0mbix/hostcfg/internal/config"
 	"github.com/z0mbix/hostcfg/internal/role"
 )
 
-func TestNewExecutor(t *testing.T) {
+// newTestExecutor creates an Executor with a silenced, color-disabled cliout
+// instance suitable for tests.
+func newTestExecutor(t *testing.T) *Executor {
+	t.Helper()
 	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	out := cliout.New()
+	out.SetWriter(&buf)
+	out.SetColorEnabled(false)
+	out.ClearPrefix()
+	return NewExecutor(out, false, 5*time.Minute)
+}
+
+func TestNewExecutor(t *testing.T) {
+	e := newTestExecutor(t)
 
 	if e == nil {
 		t.Fatal("NewExecutor returned nil")
@@ -31,8 +43,7 @@ func TestNewExecutor(t *testing.T) {
 }
 
 func TestExecutor_SetVariable(t *testing.T) {
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	e.SetVariable("test", "value")
 	// Variable is set in the parser, we can't directly test it without
@@ -53,8 +64,7 @@ resource "file" "test" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	err := e.LoadFile(hclPath)
 	if err != nil {
@@ -77,8 +87,7 @@ func TestExecutor_LoadFile_InvalidHCL(t *testing.T) {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	err := e.LoadFile(hclPath)
 	if err == nil {
@@ -87,8 +96,7 @@ func TestExecutor_LoadFile_InvalidHCL(t *testing.T) {
 }
 
 func TestExecutor_LoadFile_NonExistent(t *testing.T) {
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	err := e.LoadFile("/nonexistent/file.hcl")
 	if err == nil {
@@ -117,8 +125,7 @@ resource "directory" "two" {
 		t.Fatalf("failed to write file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	err := e.LoadDirectory(tmpDir)
 	if err != nil {
@@ -134,8 +141,7 @@ resource "directory" "two" {
 func TestExecutor_LoadDirectory_Empty(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	err := e.LoadDirectory(tmpDir)
 	if err == nil {
@@ -157,8 +163,7 @@ resource "file" "test" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(hclPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)
@@ -184,8 +189,7 @@ resource "file" "test" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	err := e.LoadFile(hclPath)
 	// The error happens during load when graph is validated
@@ -209,8 +213,7 @@ resource "file" "test" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(hclPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)
@@ -245,8 +248,7 @@ resource "file" "test" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(hclPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)
@@ -287,8 +289,7 @@ resource "file" "test" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(hclPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)
@@ -331,8 +332,7 @@ resource "file" "child" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(hclPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)
@@ -358,8 +358,7 @@ resource "file" "child" {
 }
 
 func TestExecutor_MergeDependencies(t *testing.T) {
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	tests := []struct {
 		name     string
@@ -548,8 +547,7 @@ role "myapp" {
 		t.Fatalf("failed to write main.hcl: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(mainPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)
@@ -618,8 +616,7 @@ role "myapp" {
 		t.Fatalf("failed to write main.hcl: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(mainPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)
@@ -666,8 +663,7 @@ role "webapp" {
 		t.Fatalf("failed to write main.hcl: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(mainPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)
@@ -739,8 +735,7 @@ role "webapp" {
 		t.Fatalf("failed to write main.hcl: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(mainPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)
@@ -792,8 +787,7 @@ role "myapp" {
 		t.Fatalf("failed to write main.hcl: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(mainPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)
@@ -835,8 +829,7 @@ role "myapp" {
 }
 
 func TestExecutor_expandRoleDependencies(t *testing.T) {
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	// Set up a mock role
 	e.roles["redis"] = &role.Role{
@@ -905,8 +898,7 @@ resource "file" "configs" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	err := e.LoadFile(hclPath)
 	if err != nil {
@@ -958,8 +950,7 @@ resource "file" "configs" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	err := e.LoadFile(hclPath)
 	if err != nil {
@@ -988,8 +979,7 @@ resource "file" "configs" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	err := e.LoadFile(hclPath)
 	if err != nil {
@@ -1028,8 +1018,7 @@ resource "exec" "finalize" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	err := e.LoadFile(hclPath)
 	if err != nil {
@@ -1060,8 +1049,7 @@ resource "exec" "finalize" {
 }
 
 func TestExecutor_expandForEachDependencies(t *testing.T) {
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	// Set up for_each tracking
 	e.forEachOriginalNames["package.tools"] = []string{
@@ -1123,8 +1111,7 @@ resource "file" "test" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(hclPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)
@@ -1161,8 +1148,7 @@ resource "file" "test" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(hclPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)
@@ -1200,8 +1186,7 @@ resource "file" "test" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(hclPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)
@@ -1235,8 +1220,7 @@ resource "file" "test" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(hclPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)
@@ -1280,8 +1264,7 @@ resource "file" "test" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(hclPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)
@@ -1321,8 +1304,7 @@ resource "file" "test" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(hclPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)
@@ -1367,8 +1349,7 @@ resource "file" "child" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(hclPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)
@@ -1406,8 +1387,7 @@ resource "file" "test" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(hclPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)
@@ -1445,8 +1425,7 @@ resource "file" "test" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(hclPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)
@@ -1480,8 +1459,7 @@ resource "file" "configs" {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	var buf bytes.Buffer
-	e := NewExecutor(&buf, false, false, 5*time.Minute)
+	e := newTestExecutor(t)
 
 	if err := e.LoadFile(hclPath); err != nil {
 		t.Fatalf("LoadFile failed: %v", err)

@@ -3,7 +3,6 @@ package engine
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/user"
 	"strconv"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
+	"github.com/z0mbix/cliout"
 	"github.com/z0mbix/hostcfg/internal/config"
 	"github.com/z0mbix/hostcfg/internal/diff"
 	"github.com/z0mbix/hostcfg/internal/facts"
@@ -39,14 +39,13 @@ var knownResourceTypes = map[string]bool{
 
 // Executor runs the configuration management process
 type Executor struct {
-	parser    *config.Parser
-	graph     *Graph
-	printer   *diff.Printer
-	out       io.Writer
-	useColors bool
-	verbose   bool
-	roles     map[string]*role.Role
-	cliVars   map[string]cty.Value
+	parser  *config.Parser
+	graph   *Graph
+	printer *diff.Printer
+	out     *cliout.Output
+	verbose bool
+	roles   map[string]*role.Role
+	cliVars map[string]cty.Value
 
 	// timeout tracking
 	defaultTimeout   time.Duration
@@ -62,7 +61,7 @@ type Executor struct {
 }
 
 // NewExecutor creates a new executor
-func NewExecutor(out io.Writer, useColors bool, verbose bool, defaultTimeout time.Duration) *Executor {
+func NewExecutor(out *cliout.Output, verbose bool, defaultTimeout time.Duration) *Executor {
 	parser := config.NewParser()
 
 	// Gather system facts and inject into parser
@@ -78,9 +77,8 @@ func NewExecutor(out io.Writer, useColors bool, verbose bool, defaultTimeout tim
 	return &Executor{
 		parser:               parser,
 		graph:                NewGraph(),
-		printer:              diff.NewPrinter(out, useColors),
+		printer:              diff.NewPrinter(out),
 		out:                  out,
-		useColors:            useColors,
 		verbose:              verbose,
 		defaultTimeout:       defaultTimeout,
 		resourceTimeouts:     make(map[string]time.Duration),
@@ -684,9 +682,7 @@ func (e *Executor) Plan(ctx context.Context) (*PlanResult, error) {
 		timeout := e.resourceTimeout(resourceID)
 		rctx, cancel := context.WithTimeout(ctx, timeout)
 
-		if e.verbose {
-			_, _ = fmt.Fprintf(e.out, "  [verbose] Reading current state of %s (timeout: %s)...\n", resourceID, timeout)
-		}
+		e.out.Debugf("Reading current state of %s (timeout: %s)...", resourceID, timeout)
 		current, err := r.Read(rctx)
 		if err != nil {
 			cancel()
@@ -696,9 +692,7 @@ func (e *Executor) Plan(ctx context.Context) (*PlanResult, error) {
 			return nil, fmt.Errorf("failed to read %s: %w", resourceID, err)
 		}
 
-		if e.verbose {
-			_, _ = fmt.Fprintf(e.out, "  [verbose] Computing diff for %s...\n", resourceID)
-		}
+		e.out.Debugf("Computing diff for %s...", resourceID)
 		plan, err := r.Diff(rctx, current)
 		cancel()
 		if err != nil {
@@ -799,11 +793,11 @@ func (e *Executor) Apply(ctx context.Context, result *PlanResult, dryRun bool) e
 		}
 
 		if dryRun {
-			_, _ = fmt.Fprintf(e.out, "Would %s %s\n", plan.Action, resource.ID(r))
+			e.out.Infof("Would %s %s", plan.Action, resource.ID(r))
 			continue
 		}
 
-		_, _ = fmt.Fprintf(e.out, "Applying %s...\n", resource.ID(r))
+		e.out.Infof("Applying %s...", resource.ID(r))
 		resourceID := resource.ID(r)
 		timeout := e.resourceTimeout(resourceID)
 		rctx, cancel := context.WithTimeout(ctx, timeout)
@@ -815,7 +809,7 @@ func (e *Executor) Apply(ctx context.Context, result *PlanResult, dryRun bool) e
 			}
 			return fmt.Errorf("failed to apply %s: %w", resourceID, err)
 		}
-		_, _ = fmt.Fprintf(e.out, "  Done.\n")
+		e.out.Success("  Done.")
 	}
 
 	return nil
@@ -905,9 +899,7 @@ func (e *Executor) Verify(ctx context.Context) (*VerifyResultSet, error) {
 		timeout := e.resourceTimeout(resourceID)
 		rctx, cancel := context.WithTimeout(ctx, timeout)
 
-		if e.verbose {
-			_, _ = fmt.Fprintf(e.out, "  [verbose] Verifying %s (timeout: %s)...\n", resourceID, timeout)
-		}
+		e.out.Debugf("Verifying %s (timeout: %s)...", resourceID, timeout)
 
 		verifyResult, err := r.Verify(rctx)
 		cancel()
@@ -934,51 +926,39 @@ func (e *Executor) Verify(ctx context.Context) (*VerifyResultSet, error) {
 
 // PrintVerifyResult prints the verification results
 func (e *Executor) PrintVerifyResult(result *VerifyResultSet) {
-	green := "\033[32m"
-	red := "\033[31m"
-	yellow := "\033[33m"
-	reset := "\033[0m"
-
-	if !e.useColors {
-		green = ""
-		red = ""
-		yellow = ""
-		reset = ""
-	}
-
 	for _, r := range result.Resources {
 		resourceID := resource.ID(r)
 		verifyResult := result.Results[resourceID]
 
 		switch verifyResult.Status {
 		case resource.VerifyPass:
-			_, _ = fmt.Fprintf(e.out, "%s✓%s %s - verified\n", green, reset, resourceID)
+			e.out.Infof("%s %s - verified", e.out.Colorize("✓", cliout.ColorGreen), resourceID)
 
 		case resource.VerifyFail:
-			_, _ = fmt.Fprintf(e.out, "%s✗%s %s - drift detected\n", red, reset, resourceID)
+			e.out.Infof("%s %s - drift detected", e.out.Colorize("✗", cliout.ColorRed), resourceID)
 			for _, mismatch := range verifyResult.Mismatches {
 				if mismatch.Message != "" {
-					_, _ = fmt.Fprintf(e.out, "  %s%s%s: %s\n", red, mismatch.Attribute, reset, mismatch.Message)
+					e.out.Infof("  %s: %s", e.out.Colorize(mismatch.Attribute, cliout.ColorRed), mismatch.Message)
 				} else {
-					_, _ = fmt.Fprintf(e.out, "  %s%s%s: expected %v, got %v\n",
-						red, mismatch.Attribute, reset, mismatch.Expected, mismatch.Actual)
+					e.out.Infof("  %s: expected %v, got %v",
+						e.out.Colorize(mismatch.Attribute, cliout.ColorRed), mismatch.Expected, mismatch.Actual)
 				}
 			}
 
 		case resource.VerifySkip:
-			_, _ = fmt.Fprintf(e.out, "%s⊘%s %s - skipped (%s)\n", yellow, reset, resourceID, verifyResult.SkipReason)
+			e.out.Infof("%s %s - skipped (%s)", e.out.Colorize("⊘", cliout.ColorYellow), resourceID, verifyResult.SkipReason)
 		}
 	}
 
 	// Print summary
-	_, _ = fmt.Fprintln(e.out)
-	_, _ = fmt.Fprintln(e.out, "Verification Summary:")
-	_, _ = fmt.Fprintf(e.out, "  %s%d resource(s) verified%s\n", green, result.Passed, reset)
+	e.out.Info("")
+	e.out.Info("Verification Summary:")
+	e.out.Infof("  %s", e.out.Colorize(fmt.Sprintf("%d resource(s) verified", result.Passed), cliout.ColorGreen))
 	if result.Failed > 0 {
-		_, _ = fmt.Fprintf(e.out, "  %s%d resource(s) drifted%s\n", red, result.Failed, reset)
+		e.out.Infof("  %s", e.out.Colorize(fmt.Sprintf("%d resource(s) drifted", result.Failed), cliout.ColorRed))
 	}
 	if result.Skipped > 0 {
-		_, _ = fmt.Fprintf(e.out, "  %s%d resource(s) skipped%s\n", yellow, result.Skipped, reset)
+		e.out.Infof("  %s", e.out.Colorize(fmt.Sprintf("%d resource(s) skipped", result.Skipped), cliout.ColorYellow))
 	}
 }
 

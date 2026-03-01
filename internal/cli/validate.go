@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -40,7 +38,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 
 	// Create executor
 	timeout, _ := time.ParseDuration(defaultTimeout)
-	executor := engine.NewExecutor(os.Stdout, !noColor, verbose, timeout)
+	executor := engine.NewExecutor(out, verbose, timeout)
 
 	// Load variables (auto-load files, --var-file, -e)
 	if err := loadVariables(executor, configDir); err != nil {
@@ -63,6 +61,6 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Println("Configuration is valid.")
+	out.Success("Configuration is valid.")
 	return nil
 }

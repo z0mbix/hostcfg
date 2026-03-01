@@ -70,8 +70,7 @@ func runApply(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create executor
-	useColors := !noColor && isTerminal()
-	executor := engine.NewExecutor(os.Stdout, useColors, verbose, timeout)
+	executor := engine.NewExecutor(out, verbose, timeout)
 
 	// Load variables (auto-load files, --var-file, -e)
 	if err := loadVariables(executor, configDir); err != nil {
@@ -118,19 +117,19 @@ func runApply(cmd *cobra.Command, args []string) error {
 		}
 		response = strings.TrimSpace(strings.ToLower(response))
 		if response != "yes" && response != "y" {
-			fmt.Println("Apply cancelled.")
+			out.Warn("Apply cancelled.")
 			return nil
 		}
 	}
 
-	fmt.Println()
+	out.Info("")
 
 	// Apply changes
 	if err := executor.Apply(ctx, result, false); err != nil {
 		return err
 	}
 
-	fmt.Printf("\nApply complete! Resources: %d added, %d changed, %d destroyed.\n",
+	out.Successf("Apply complete! Resources: %d added, %d changed, %d destroyed.",
 		result.ToAdd, result.ToChange, result.ToDestroy)
 
 	return nil
