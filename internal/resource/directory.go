@@ -309,3 +309,94 @@ func (r *DirectoryResource) applyOwnershipAndMode() error {
 
 	return nil
 }
+
+// Verify checks that the current state matches the desired state
+func (r *DirectoryResource) Verify(ctx context.Context) (*VerifyResult, error) {
+	result := &VerifyResult{
+		Status:     VerifyPass,
+		Mismatches: []VerifyMismatch{},
+	}
+
+	ensure := "present"
+	if r.config.Ensure != nil {
+		ensure = *r.config.Ensure
+	}
+
+	// Read current state
+	current, err := r.Read(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Handle ensure = absent
+	if ensure == "absent" {
+		if current.Exists {
+			result.Status = VerifyFail
+			result.Mismatches = append(result.Mismatches, VerifyMismatch{
+				Attribute: "exists",
+				Expected:  false,
+				Actual:    true,
+				Message:   "directory should not exist",
+			})
+		}
+		return result, nil
+	}
+
+	// Handle ensure = present
+	if !current.Exists {
+		result.Status = VerifyFail
+		result.Mismatches = append(result.Mismatches, VerifyMismatch{
+			Attribute: "exists",
+			Expected:  true,
+			Actual:    false,
+			Message:   "directory does not exist",
+		})
+		return result, nil
+	}
+
+	// Directory exists - verify attributes
+
+	// Check mode (if specified)
+	if r.config.Mode != nil {
+		currentMode, _ := current.Attributes["mode"].(string)
+		if currentMode != *r.config.Mode {
+			result.Status = VerifyFail
+			result.Mismatches = append(result.Mismatches, VerifyMismatch{
+				Attribute: "mode",
+				Expected:  *r.config.Mode,
+				Actual:    currentMode,
+				Message:   fmt.Sprintf("expected %s, got %s", *r.config.Mode, currentMode),
+			})
+		}
+	}
+
+	// Check owner (if specified)
+	if r.config.Owner != nil {
+		currentOwner, _ := current.Attributes["owner"].(string)
+		if currentOwner != *r.config.Owner {
+			result.Status = VerifyFail
+			result.Mismatches = append(result.Mismatches, VerifyMismatch{
+				Attribute: "owner",
+				Expected:  *r.config.Owner,
+				Actual:    currentOwner,
+				Message:   fmt.Sprintf("expected %s, got %s", *r.config.Owner, currentOwner),
+			})
+		}
+	}
+
+	// Check group (if specified)
+	if r.config.Group != nil {
+		currentGroup, _ := current.Attributes["group"].(string)
+		if currentGroup != *r.config.Group {
+			result.Status = VerifyFail
+			result.Mismatches = append(result.Mismatches, VerifyMismatch{
+				Attribute: "group",
+				Expected:  *r.config.Group,
+				Actual:    currentGroup,
+				Message:   fmt.Sprintf("expected %s, got %s", *r.config.Group, currentGroup),
+			})
+		}
+	}
+
+	return result, nil
+}

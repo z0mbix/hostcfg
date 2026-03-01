@@ -74,6 +74,9 @@ func (m *mockResourceForID) Diff(ctx context.Context, s *State) (*Plan, error)  
 func (m *mockResourceForID) Apply(ctx context.Context, p *Plan, apply bool) error      { return nil }
 func (m *mockResourceForID) Validate() error                                           { return nil }
 func (m *mockResourceForID) Dependencies() []string                                    { return nil }
+func (m *mockResourceForID) Verify(ctx context.Context) (*VerifyResult, error) {
+	return &VerifyResult{Status: VerifyPass}, nil
+}
 
 func TestID(t *testing.T) {
 	tests := []struct {

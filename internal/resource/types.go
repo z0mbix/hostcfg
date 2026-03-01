@@ -66,6 +66,53 @@ func (p *Plan) HasChanges() bool {
 	return p.Action != ActionNoop
 }
 
+// VerifyStatus represents the result of a verification check
+type VerifyStatus int
+
+const (
+	VerifyPass VerifyStatus = iota
+	VerifyFail
+	VerifySkip
+)
+
+func (v VerifyStatus) String() string {
+	switch v {
+	case VerifyPass:
+		return "pass"
+	case VerifyFail:
+		return "fail"
+	case VerifySkip:
+		return "skip"
+	default:
+		return "unknown"
+	}
+}
+
+// VerifyMismatch represents a single attribute mismatch during verification
+type VerifyMismatch struct {
+	Attribute string
+	Expected  interface{}
+	Actual    interface{}
+	Message   string // Optional human-readable message
+}
+
+// VerifyResult represents the result of verifying a resource
+type VerifyResult struct {
+	Status      VerifyStatus
+	Mismatches  []VerifyMismatch
+	SkipReason  string // Reason for skipping (e.g., "when condition false")
+}
+
+// HasMismatches returns true if there are any verification mismatches
+func (v *VerifyResult) HasMismatches() bool {
+	return len(v.Mismatches) > 0
+}
+
+// Passed returns true if verification passed (no mismatches)
+func (v *VerifyResult) Passed() bool {
+	return v.Status == VerifyPass && !v.HasMismatches()
+}
+
 // Resource is the interface that all resources must implement
 type Resource interface {
 	// Type returns the resource type (e.g., "file", "directory")
@@ -91,6 +138,10 @@ type Resource interface {
 
 	// Dependencies returns the list of resource references this resource depends on
 	Dependencies() []string
+
+	// Verify checks that the current state matches the desired state
+	// Returns a VerifyResult indicating if verification passed and any mismatches found
+	Verify(ctx context.Context) (*VerifyResult, error)
 }
 
 // ID returns the fully qualified resource ID (type.name)

@@ -137,3 +137,31 @@ func (r *HostnameResource) Apply(ctx context.Context, plan *Plan, apply bool) er
 
 	return nil
 }
+
+// Verify checks that the current state matches the desired state
+func (r *HostnameResource) Verify(ctx context.Context) (*VerifyResult, error) {
+	result := &VerifyResult{
+		Status:     VerifyPass,
+		Mismatches: []VerifyMismatch{},
+	}
+
+	// Read current state
+	current, err := r.Read(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check hostname
+	currentName, _ := current.Attributes["name"].(string)
+	if currentName != r.config.Name {
+		result.Status = VerifyFail
+		result.Mismatches = append(result.Mismatches, VerifyMismatch{
+			Attribute: "name",
+			Expected:  r.config.Name,
+			Actual:    currentName,
+			Message:   fmt.Sprintf("expected hostname %s, got %s", r.config.Name, currentName),
+		})
+	}
+
+	return result, nil
+}

@@ -229,3 +229,66 @@ func (r *GroupResource) setGroupMembers(ctx context.Context, members []string) e
 	}
 	return nil
 }
+
+// Verify checks that the current state matches the desired state
+func (r *GroupResource) Verify(ctx context.Context) (*VerifyResult, error) {
+	result := &VerifyResult{
+		Status:     VerifyPass,
+		Mismatches: []VerifyMismatch{},
+	}
+
+	ensure := "present"
+	if r.config.Ensure != nil {
+		ensure = *r.config.Ensure
+	}
+
+	// Read current state
+	current, err := r.Read(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Handle ensure = absent
+	if ensure == "absent" {
+		if current.Exists {
+			result.Status = VerifyFail
+			result.Mismatches = append(result.Mismatches, VerifyMismatch{
+				Attribute: "exists",
+				Expected:  false,
+				Actual:    true,
+				Message:   "group should not exist",
+			})
+		}
+		return result, nil
+	}
+
+	// Handle ensure = present
+	if !current.Exists {
+		result.Status = VerifyFail
+		result.Mismatches = append(result.Mismatches, VerifyMismatch{
+			Attribute: "exists",
+			Expected:  true,
+			Actual:    false,
+			Message:   "group does not exist",
+		})
+		return result, nil
+	}
+
+	// Group exists - verify attributes
+
+	// Check members (if specified)
+	if r.config.Members != nil {
+		currentMembers, _ := current.Attributes["members"].([]string)
+		if !stringSlicesEqual(currentMembers, r.config.Members) {
+			result.Status = VerifyFail
+			result.Mismatches = append(result.Mismatches, VerifyMismatch{
+				Attribute: "members",
+				Expected:  strings.Join(r.config.Members, ","),
+				Actual:    strings.Join(currentMembers, ","),
+				Message:   fmt.Sprintf("expected members %s, got %s", strings.Join(r.config.Members, ","), strings.Join(currentMembers, ",")),
+			})
+		}
+	}
+
+	return result, nil
+}

@@ -227,3 +227,76 @@ func (r *LinkResource) Apply(ctx context.Context, plan *Plan, apply bool) error 
 
 	return nil
 }
+
+// Verify checks that the current state matches the desired state
+func (r *LinkResource) Verify(ctx context.Context) (*VerifyResult, error) {
+	result := &VerifyResult{
+		Status:     VerifyPass,
+		Mismatches: []VerifyMismatch{},
+	}
+
+	ensure := "present"
+	if r.config.Ensure != nil {
+		ensure = *r.config.Ensure
+	}
+
+	// Read current state
+	current, err := r.Read(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Handle ensure = absent
+	if ensure == "absent" {
+		if current.Exists {
+			result.Status = VerifyFail
+			result.Mismatches = append(result.Mismatches, VerifyMismatch{
+				Attribute: "exists",
+				Expected:  false,
+				Actual:    true,
+				Message:   "link should not exist",
+			})
+		}
+		return result, nil
+	}
+
+	// Handle ensure = present
+	if !current.Exists {
+		result.Status = VerifyFail
+		result.Mismatches = append(result.Mismatches, VerifyMismatch{
+			Attribute: "exists",
+			Expected:  true,
+			Actual:    false,
+			Message:   "link does not exist",
+		})
+		return result, nil
+	}
+
+	// Something exists at the path
+	isSymlink, _ := current.Attributes["is_symlink"].(bool)
+
+	if !isSymlink {
+		result.Status = VerifyFail
+		result.Mismatches = append(result.Mismatches, VerifyMismatch{
+			Attribute: "type",
+			Expected:  "symlink",
+			Actual:    "file/directory",
+			Message:   "path exists but is not a symlink",
+		})
+		return result, nil
+	}
+
+	// It's a symlink - check if target matches
+	currentTarget, _ := current.Attributes["target"].(string)
+	if currentTarget != r.config.Target {
+		result.Status = VerifyFail
+		result.Mismatches = append(result.Mismatches, VerifyMismatch{
+			Attribute: "target",
+			Expected:  r.config.Target,
+			Actual:    currentTarget,
+			Message:   fmt.Sprintf("expected target %s, got %s", r.config.Target, currentTarget),
+		})
+	}
+
+	return result, nil
+}

@@ -319,3 +319,108 @@ func stringSlicesEqual(a, b []string) bool {
 	}
 	return true
 }
+
+// Verify checks that the current state matches the desired state
+func (r *UserResource) Verify(ctx context.Context) (*VerifyResult, error) {
+	result := &VerifyResult{
+		Status:     VerifyPass,
+		Mismatches: []VerifyMismatch{},
+	}
+
+	ensure := "present"
+	if r.config.Ensure != nil {
+		ensure = *r.config.Ensure
+	}
+
+	// Read current state
+	current, err := r.Read(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Handle ensure = absent
+	if ensure == "absent" {
+		if current.Exists {
+			result.Status = VerifyFail
+			result.Mismatches = append(result.Mismatches, VerifyMismatch{
+				Attribute: "exists",
+				Expected:  false,
+				Actual:    true,
+				Message:   "user should not exist",
+			})
+		}
+		return result, nil
+	}
+
+	// Handle ensure = present
+	if !current.Exists {
+		result.Status = VerifyFail
+		result.Mismatches = append(result.Mismatches, VerifyMismatch{
+			Attribute: "exists",
+			Expected:  true,
+			Actual:    false,
+			Message:   "user does not exist",
+		})
+		return result, nil
+	}
+
+	// User exists - verify attributes
+
+	// Check shell (if specified)
+	if r.config.Shell != nil {
+		currentShell, _ := current.Attributes["shell"].(string)
+		if currentShell != *r.config.Shell {
+			result.Status = VerifyFail
+			result.Mismatches = append(result.Mismatches, VerifyMismatch{
+				Attribute: "shell",
+				Expected:  *r.config.Shell,
+				Actual:    currentShell,
+				Message:   fmt.Sprintf("expected %s, got %s", *r.config.Shell, currentShell),
+			})
+		}
+	}
+
+	// Check home (if specified)
+	if r.config.Home != nil {
+		currentHome, _ := current.Attributes["home"].(string)
+		if currentHome != *r.config.Home {
+			result.Status = VerifyFail
+			result.Mismatches = append(result.Mismatches, VerifyMismatch{
+				Attribute: "home",
+				Expected:  *r.config.Home,
+				Actual:    currentHome,
+				Message:   fmt.Sprintf("expected %s, got %s", *r.config.Home, currentHome),
+			})
+		}
+	}
+
+	// Check comment (if specified)
+	if r.config.Comment != nil {
+		currentComment, _ := current.Attributes["comment"].(string)
+		if currentComment != *r.config.Comment {
+			result.Status = VerifyFail
+			result.Mismatches = append(result.Mismatches, VerifyMismatch{
+				Attribute: "comment",
+				Expected:  *r.config.Comment,
+				Actual:    currentComment,
+				Message:   fmt.Sprintf("expected %s, got %s", *r.config.Comment, currentComment),
+			})
+		}
+	}
+
+	// Check groups (if specified)
+	if r.config.Groups != nil {
+		currentGroups, _ := current.Attributes["groups"].([]string)
+		if !stringSlicesEqual(currentGroups, r.config.Groups) {
+			result.Status = VerifyFail
+			result.Mismatches = append(result.Mismatches, VerifyMismatch{
+				Attribute: "groups",
+				Expected:  strings.Join(r.config.Groups, ","),
+				Actual:    strings.Join(currentGroups, ","),
+				Message:   fmt.Sprintf("expected groups %s, got %s", strings.Join(r.config.Groups, ","), strings.Join(currentGroups, ",")),
+			})
+		}
+	}
+
+	return result, nil
+}

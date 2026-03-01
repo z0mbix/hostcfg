@@ -232,3 +232,64 @@ func detectPackageManager() (PackageManager, error) {
 
 	return nil, fmt.Errorf("no supported package manager found for %s", runtime.GOOS)
 }
+
+// Verify checks that the current state matches the desired state
+func (r *PackageResource) Verify(ctx context.Context) (*VerifyResult, error) {
+	result := &VerifyResult{
+		Status:     VerifyPass,
+		Mismatches: []VerifyMismatch{},
+	}
+
+	ensure := "present"
+	if r.config.Ensure != nil {
+		ensure = *r.config.Ensure
+	}
+
+	// Read current state
+	current, err := r.Read(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Handle ensure = absent
+	if ensure == "absent" {
+		if current.Exists {
+			result.Status = VerifyFail
+			result.Mismatches = append(result.Mismatches, VerifyMismatch{
+				Attribute: "ensure",
+				Expected:  "absent",
+				Actual:    "present",
+				Message:   "package should not be installed",
+			})
+		}
+		return result, nil
+	}
+
+	// Handle ensure = present
+	if !current.Exists {
+		result.Status = VerifyFail
+		result.Mismatches = append(result.Mismatches, VerifyMismatch{
+			Attribute: "ensure",
+			Expected:  "present",
+			Actual:    "absent",
+			Message:   "package is not installed",
+		})
+		return result, nil
+	}
+
+	// Package is installed - check version if specified
+	if r.config.Version != nil {
+		currentVersion, _ := current.Attributes["version"].(string)
+		if currentVersion != *r.config.Version {
+			result.Status = VerifyFail
+			result.Mismatches = append(result.Mismatches, VerifyMismatch{
+				Attribute: "version",
+				Expected:  *r.config.Version,
+				Actual:    currentVersion,
+				Message:   fmt.Sprintf("expected version %s, got %s", *r.config.Version, currentVersion),
+			})
+		}
+	}
+
+	return result, nil
+}

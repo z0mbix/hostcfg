@@ -49,8 +49,8 @@ type Executor struct {
 	cliVars   map[string]cty.Value
 
 	// timeout tracking
-	defaultTimeout    time.Duration
-	resourceTimeouts  map[string]time.Duration // resourceID -> timeout
+	defaultTimeout   time.Duration
+	resourceTimeouts map[string]time.Duration // resourceID -> timeout
 
 	// for_each tracking
 	forEachValues        map[string]cty.Value // resourceID -> each.value
@@ -844,6 +844,156 @@ type PlanResult struct {
 // HasChanges returns true if there are any changes in the plan
 func (r *PlanResult) HasChanges() bool {
 	return r.ToAdd > 0 || r.ToChange > 0 || r.ToDestroy > 0
+}
+
+// Verify verifies that resources match their desired state
+func (e *Executor) Verify(ctx context.Context) (*VerifyResultSet, error) {
+	result := &VerifyResultSet{
+		Results: make(map[string]*resource.VerifyResult),
+	}
+
+	// Reset skipped resources tracking
+	e.skippedResources = make(map[string]string)
+
+	// Get resources in dependency order
+	resources, err := e.graph.TopologicalSort()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, r := range resources {
+		resourceID := resource.ID(r)
+
+		// Check if any dependency was skipped (cascade skip)
+		skipReason := e.checkDependencySkipped(r)
+		if skipReason != "" {
+			verifyResult := &resource.VerifyResult{
+				Status:     resource.VerifySkip,
+				SkipReason: skipReason,
+			}
+			result.Results[resourceID] = verifyResult
+			result.Resources = append(result.Resources, r)
+			result.Skipped++
+			e.skippedResources[resourceID] = skipReason
+			continue
+		}
+
+		// Check when condition
+		if whenExpr, ok := e.whenExpressions[resourceID]; ok {
+			evalCtx := e.buildWhenEvalContext(r)
+			shouldExecute, failedCondition, err := e.parser.EvaluateWhen(whenExpr, evalCtx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to evaluate when condition for %s: %w", resourceID, err)
+			}
+			if !shouldExecute {
+				skipReason := "when condition false"
+				if failedCondition != "" {
+					skipReason = fmt.Sprintf("when %s", failedCondition)
+				}
+				verifyResult := &resource.VerifyResult{
+					Status:     resource.VerifySkip,
+					SkipReason: skipReason,
+				}
+				result.Results[resourceID] = verifyResult
+				result.Resources = append(result.Resources, r)
+				result.Skipped++
+				e.skippedResources[resourceID] = skipReason
+				continue
+			}
+		}
+
+		timeout := e.resourceTimeout(resourceID)
+		rctx, cancel := context.WithTimeout(ctx, timeout)
+
+		if e.verbose {
+			_, _ = fmt.Fprintf(e.out, "  [verbose] Verifying %s (timeout: %s)...\n", resourceID, timeout)
+		}
+
+		verifyResult, err := r.Verify(rctx)
+		cancel()
+		if err != nil {
+			if rctx.Err() == context.DeadlineExceeded {
+				return nil, fmt.Errorf("timeout verifying %s after %s", resourceID, timeout)
+			}
+			return nil, fmt.Errorf("failed to verify %s: %w", resourceID, err)
+		}
+
+		result.Results[resourceID] = verifyResult
+		result.Resources = append(result.Resources, r)
+
+		switch verifyResult.Status {
+		case resource.VerifyPass:
+			result.Passed++
+		case resource.VerifyFail:
+			result.Failed++
+		}
+	}
+
+	return result, nil
+}
+
+// PrintVerifyResult prints the verification results
+func (e *Executor) PrintVerifyResult(result *VerifyResultSet) {
+	green := "\033[32m"
+	red := "\033[31m"
+	yellow := "\033[33m"
+	reset := "\033[0m"
+
+	if !e.useColors {
+		green = ""
+		red = ""
+		yellow = ""
+		reset = ""
+	}
+
+	for _, r := range result.Resources {
+		resourceID := resource.ID(r)
+		verifyResult := result.Results[resourceID]
+
+		switch verifyResult.Status {
+		case resource.VerifyPass:
+			_, _ = fmt.Fprintf(e.out, "%s✓%s %s - verified\n", green, reset, resourceID)
+
+		case resource.VerifyFail:
+			_, _ = fmt.Fprintf(e.out, "%s✗%s %s - drift detected\n", red, reset, resourceID)
+			for _, mismatch := range verifyResult.Mismatches {
+				if mismatch.Message != "" {
+					_, _ = fmt.Fprintf(e.out, "  %s%s%s: %s\n", red, mismatch.Attribute, reset, mismatch.Message)
+				} else {
+					_, _ = fmt.Fprintf(e.out, "  %s%s%s: expected %v, got %v\n",
+						red, mismatch.Attribute, reset, mismatch.Expected, mismatch.Actual)
+				}
+			}
+
+		case resource.VerifySkip:
+			_, _ = fmt.Fprintf(e.out, "%s⊘%s %s - skipped (%s)\n", yellow, reset, resourceID, verifyResult.SkipReason)
+		}
+	}
+
+	// Print summary
+	_, _ = fmt.Fprintln(e.out)
+	_, _ = fmt.Fprintln(e.out, "Verification Summary:")
+	_, _ = fmt.Fprintf(e.out, "  %s%d resource(s) verified%s\n", green, result.Passed, reset)
+	if result.Failed > 0 {
+		_, _ = fmt.Fprintf(e.out, "  %s%d resource(s) drifted%s\n", red, result.Failed, reset)
+	}
+	if result.Skipped > 0 {
+		_, _ = fmt.Fprintf(e.out, "  %s%d resource(s) skipped%s\n", yellow, result.Skipped, reset)
+	}
+}
+
+// VerifyResultSet holds the results of a verification operation
+type VerifyResultSet struct {
+	Resources []resource.Resource
+	Results   map[string]*resource.VerifyResult
+	Passed    int
+	Failed    int
+	Skipped   int
+}
+
+// HasDrift returns true if any resources have drifted
+func (v *VerifyResultSet) HasDrift() bool {
+	return v.Failed > 0
 }
 
 // FindConfigFile looks for configuration in the following order:

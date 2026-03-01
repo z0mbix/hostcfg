@@ -18,16 +18,16 @@ resource "directory" "config" {
 # Create multiple config files with for_each
 resource "file" "configs" {
   description = "Create config files for ${each.key}"
-  for_each = toset(["app", "db", "cache"])
-    path     = "${directory.config.path}/${each.key}.conf"
-  content  = "# ${each.value} configuration\ndebug = ${var.debug}\n"
+  for_each    = toset(["app", "db", "cache"])
+  path        = "${directory.config.path}/${each.key}.conf"
+  content     = "# ${each.value} configuration\ndebug = ${var.debug}\n"
 }
 
-# Only create this file on Linux (using a when condition)
+# Only create this file on Linux or macOS when debug mode is enabled
 resource "file" "platform_info" {
   description = "Create platform info file for ${fact.os.name}"
-  path    = "${directory.config.path}/platform.txt"
-  content = "Running on ${fact.os.distribution} (${fact.arch})\n"
+  path        = "${directory.config.path}/platform.txt"
+  content     = "Running on ${fact.os.distribution} (${fact.arch})\n"
 
   when = [
     fact.os.name == "darwin" || fact.os.name == "linux",

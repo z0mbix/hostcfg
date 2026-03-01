@@ -33,6 +33,9 @@ func (m *mockResource) Diff(ctx context.Context, s *resource.State) (*resource.P
 func (m *mockResource) Apply(ctx context.Context, p *resource.Plan, apply bool) error { return nil }
 func (m *mockResource) Validate() error                                           { m.validated = true; return nil }
 func (m *mockResource) Dependencies() []string                                    { return m.deps }
+func (m *mockResource) Verify(ctx context.Context) (*resource.VerifyResult, error) {
+	return &resource.VerifyResult{Status: resource.VerifyPass}, nil
+}
 
 func TestNewGraph(t *testing.T) {
 	g := NewGraph()

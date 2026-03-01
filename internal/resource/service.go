@@ -268,3 +268,61 @@ func detectServiceManager() (ServiceManager, error) {
 		return nil, fmt.Errorf("no supported service manager found for %s", runtime.GOOS)
 	}
 }
+
+// Verify checks that the current state matches the desired state
+func (r *ServiceResource) Verify(ctx context.Context) (*VerifyResult, error) {
+	result := &VerifyResult{
+		Status:     VerifyPass,
+		Mismatches: []VerifyMismatch{},
+	}
+
+	// Read current state
+	current, err := r.Read(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// If service doesn't exist, we can't verify it
+	if !current.Exists {
+		result.Status = VerifyFail
+		result.Mismatches = append(result.Mismatches, VerifyMismatch{
+			Attribute: "exists",
+			Expected:  true,
+			Actual:    false,
+			Message:   "service does not exist (is the package installed?)",
+		})
+		return result, nil
+	}
+
+	// Service exists - verify attributes
+
+	// Check ensure (running/stopped) if specified
+	if r.config.Ensure != nil {
+		currentEnsure, _ := current.Attributes["ensure"].(string)
+		if currentEnsure != *r.config.Ensure {
+			result.Status = VerifyFail
+			result.Mismatches = append(result.Mismatches, VerifyMismatch{
+				Attribute: "ensure",
+				Expected:  *r.config.Ensure,
+				Actual:    currentEnsure,
+				Message:   fmt.Sprintf("expected %s, got %s", *r.config.Ensure, currentEnsure),
+			})
+		}
+	}
+
+	// Check enabled if specified
+	if r.config.Enabled != nil {
+		currentEnabled, _ := current.Attributes["enabled"].(bool)
+		if currentEnabled != *r.config.Enabled {
+			result.Status = VerifyFail
+			result.Mismatches = append(result.Mismatches, VerifyMismatch{
+				Attribute: "enabled",
+				Expected:  *r.config.Enabled,
+				Actual:    currentEnabled,
+				Message:   fmt.Sprintf("expected %v, got %v", *r.config.Enabled, currentEnabled),
+			})
+		}
+	}
+
+	return result, nil
+}

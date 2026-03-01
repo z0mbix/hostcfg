@@ -23,6 +23,9 @@ func (r *testResource) Diff(ctx context.Context, s *State) (*Plan, error)       
 func (r *testResource) Apply(ctx context.Context, p *Plan, apply bool) error      { return nil }
 func (r *testResource) Validate() error                                           { return nil }
 func (r *testResource) Dependencies() []string                                    { return r.deps }
+func (r *testResource) Verify(ctx context.Context) (*VerifyResult, error) {
+	return &VerifyResult{Status: VerifyPass}, nil
+}
 
 func testFactory(name string, body hcl.Body, dependsOn []string, description string, ctx *hcl.EvalContext) (Resource, error) {
 	return &testResource{

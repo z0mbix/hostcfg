@@ -63,6 +63,7 @@ exec commands, and hostname configuration.`,
 	// Add subcommands
 	rootCmd.AddCommand(NewPlanCmd())
 	rootCmd.AddCommand(NewApplyCmd())
+	rootCmd.AddCommand(NewVerifyCmd())
 	rootCmd.AddCommand(NewValidateCmd())
 	rootCmd.AddCommand(NewFactsCmd())
 	rootCmd.AddCommand(NewUpdateCmd())

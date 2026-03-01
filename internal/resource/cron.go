@@ -268,3 +268,89 @@ func (r *CronResource) getUser() string {
 	}
 	return "root"
 }
+
+// Verify checks that the current state matches the desired state
+func (r *CronResource) Verify(ctx context.Context) (*VerifyResult, error) {
+	result := &VerifyResult{
+		Status:     VerifyPass,
+		Mismatches: []VerifyMismatch{},
+	}
+
+	ensure := "present"
+	if r.config.Ensure != nil {
+		ensure = *r.config.Ensure
+	}
+
+	// Read current state
+	current, err := r.Read(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Handle ensure = absent
+	if ensure == "absent" {
+		if current.Exists {
+			result.Status = VerifyFail
+			result.Mismatches = append(result.Mismatches, VerifyMismatch{
+				Attribute: "exists",
+				Expected:  false,
+				Actual:    true,
+				Message:   "cron entry should not exist",
+			})
+		}
+		return result, nil
+	}
+
+	// Handle ensure = present
+	if !current.Exists {
+		result.Status = VerifyFail
+		result.Mismatches = append(result.Mismatches, VerifyMismatch{
+			Attribute: "exists",
+			Expected:  true,
+			Actual:    false,
+			Message:   "cron entry does not exist",
+		})
+		return result, nil
+	}
+
+	// Cron entry exists - verify attributes
+
+	// Check schedule
+	currentSchedule, _ := current.Attributes["schedule"].(string)
+	if currentSchedule != r.config.Schedule {
+		result.Status = VerifyFail
+		result.Mismatches = append(result.Mismatches, VerifyMismatch{
+			Attribute: "schedule",
+			Expected:  r.config.Schedule,
+			Actual:    currentSchedule,
+			Message:   fmt.Sprintf("expected schedule %s, got %s", r.config.Schedule, currentSchedule),
+		})
+	}
+
+	// Check command
+	currentCommand, _ := current.Attributes["command"].(string)
+	if currentCommand != r.config.Command {
+		result.Status = VerifyFail
+		result.Mismatches = append(result.Mismatches, VerifyMismatch{
+			Attribute: "command",
+			Expected:  r.config.Command,
+			Actual:    currentCommand,
+			Message:   fmt.Sprintf("expected command %s, got %s", r.config.Command, currentCommand),
+		})
+	}
+
+	// Check user
+	currentUser, _ := current.Attributes["user"].(string)
+	expectedUser := r.getUser()
+	if currentUser != expectedUser {
+		result.Status = VerifyFail
+		result.Mismatches = append(result.Mismatches, VerifyMismatch{
+			Attribute: "user",
+			Expected:  expectedUser,
+			Actual:    currentUser,
+			Message:   fmt.Sprintf("expected user %s, got %s", expectedUser, currentUser),
+		})
+	}
+
+	return result, nil
+}

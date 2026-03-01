@@ -178,3 +178,35 @@ func (r *ExecResource) Apply(ctx context.Context, plan *Plan, apply bool) error 
 
 	return nil
 }
+
+// Verify checks that the current state matches the desired state
+func (r *ExecResource) Verify(ctx context.Context) (*VerifyResult, error) {
+	result := &VerifyResult{
+		Status:     VerifyPass,
+		Mismatches: []VerifyMismatch{},
+	}
+
+	// Read current state
+	current, err := r.Read(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// For exec resources, we only verify the "creates" file if specified
+	if r.config.Creates != nil {
+		if _, exists := current.Attributes["creates"]; !exists {
+			result.Status = VerifyFail
+			result.Mismatches = append(result.Mismatches, VerifyMismatch{
+				Attribute: "creates",
+				Expected:  *r.config.Creates,
+				Actual:    "(file does not exist)",
+				Message:   fmt.Sprintf("expected file %s to exist", *r.config.Creates),
+			})
+		}
+	}
+
+	// Note: We don't re-run the command during verification
+	// We only check if the "creates" file exists
+
+	return result, nil
+}

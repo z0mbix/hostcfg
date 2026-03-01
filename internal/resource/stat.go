@@ -141,3 +141,21 @@ func (r *StatResource) Apply(ctx context.Context, plan *Plan, apply bool) error 
 	// Stat is a read-only resource, Apply is a no-op
 	return nil
 }
+
+// Verify checks that the current state matches the desired state
+func (r *StatResource) Verify(ctx context.Context) (*VerifyResult, error) {
+	// Stat is a read-only resource with no desired state to compare against
+	// Verification always passes as long as we can read the current state
+	result := &VerifyResult{
+		Status:     VerifyPass,
+		Mismatches: []VerifyMismatch{},
+	}
+
+	// Try to read the current state to ensure it's accessible
+	_, err := r.Read(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}

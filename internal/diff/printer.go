@@ -43,6 +43,16 @@ func (p *Printer) PrintPlan(r resource.Resource, plan *resource.Plan) {
 		return
 	}
 
+	// Print description first if present
+	if desc := r.Description(); desc != "" {
+		if p.useColors {
+			gray := color.New(color.FgHiBlack)
+			_, _ = gray.Fprintf(p.out, "» %s\n", desc)
+		} else {
+			_, _ = fmt.Fprintf(p.out, "» %s\n", desc)
+		}
+	}
+
 	// Print resource header with action symbol
 	switch plan.Action {
 	case resource.ActionCreate:
@@ -51,11 +61,6 @@ func (p *Printer) PrintPlan(r resource.Resource, plan *resource.Plan) {
 		p.printHeader("~", resource.ID(r), color.FgYellow)
 	case resource.ActionDelete:
 		p.printHeader("-", resource.ID(r), color.FgRed)
-	}
-
-	// Print description if present
-	if desc := r.Description(); desc != "" {
-		_, _ = fmt.Fprintf(p.out, "  # %s\n", desc)
 	}
 
 	// Print each change
@@ -73,17 +78,22 @@ func (p *Printer) printSkipped(r resource.Resource, plan *resource.Plan) {
 		skipReason = "condition not met"
 	}
 
+	// Print description first if present
+	if desc := r.Description(); desc != "" {
+		if p.useColors {
+			gray := color.New(color.FgHiBlack)
+			_, _ = gray.Fprintf(p.out, "» %s\n", desc)
+		} else {
+			_, _ = fmt.Fprintf(p.out, "» %s\n", desc)
+		}
+	}
+
 	if p.useColors {
 		cyan := color.New(color.FgCyan, color.Bold)
 		_, _ = cyan.Fprintf(p.out, "# %s", resource.ID(r))
 		_, _ = fmt.Fprintf(p.out, " (skipped: %s)\n", skipReason)
 	} else {
 		_, _ = fmt.Fprintf(p.out, "# %s (skipped: %s)\n", resource.ID(r), skipReason)
-	}
-
-	// Print description if present
-	if desc := r.Description(); desc != "" {
-		_, _ = fmt.Fprintf(p.out, "  # %s\n", desc)
 	}
 
 	_, _ = fmt.Fprintln(p.out)
